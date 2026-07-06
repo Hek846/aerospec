@@ -2,9 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../middleware/errorHandler.js';
 
+export type Role = 'user' | 'admin';
+
 export interface AuthPayload {
   userId: string;
-  role: 'owner' | 'standard' | 'admin';
+  role: Role;
   email: string;
 }
 
@@ -12,15 +14,16 @@ export interface AuthRequest extends Request {
   user?: AuthPayload;
 }
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  (process.env.NODE_ENV !== 'production'
-    ? 'development-only-secret-change-in-production'
-    : (() => {
-        throw new Error(
-          'JWT_SECRET environment variable must be set in production. Refusing to use fallback secret.'
-        );
-      })());
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV !== 'production') {
+    return 'development-only-secret-change-in-production';
+  }
+  throw new Error(
+    'JWT_SECRET environment variable must be set in production. Refusing to use fallback secret.'
+  );
+}
 
 export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -31,7 +34,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as AuthPayload;
     req.user = decoded;
     next();
   } catch (error) {
@@ -39,7 +42,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
   }
 }
 
-export function requireRole(...roles: Array<'owner' | 'standard' | 'admin'>) {
+export function requireRole(...roles: Role[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       throw new AppError('Authentication required', 401);
@@ -54,5 +57,5 @@ export function requireRole(...roles: Array<'owner' | 'standard' | 'admin'>) {
 }
 
 export function generateToken(payload: AuthPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 }

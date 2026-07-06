@@ -41,6 +41,10 @@ android {
     }
 
     defaultConfig {
+        // TODO: Rebrand applicationId/namespace to an aerospec package id.
+        // Requires renaming the kotlin package directory and MainActivity
+        // package, and breaks upgrade continuity for installed builds, so
+        // deliberately left as-is for now.
         applicationId "com.sensair.mobile"
         minSdk 26
         targetSdk 34

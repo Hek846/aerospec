@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import { useDevices, useHomes, useRooms, useSensorReadings } from '../hooks/useData';
+import { useDevices, useHomes, useRooms } from '../hooks/useData';
 import { DeviceCard } from '../components/DeviceCard';
 import { ExportButton } from '../components/ExportButton';
 import './Dashboard.css';
@@ -8,33 +7,19 @@ export function Dashboard() {
   const devices = useDevices();
   const homes = useHomes();
   const rooms = useRooms();
-  const sensorReadings = useSensorReadings();
   const home = homes[0]; // For V1, we have one home
 
   // Get online/offline counts
   const onlineCount = devices.filter(d => d.status === 'online').length;
   const offlineCount = devices.filter(d => d.status === 'offline').length;
 
-  // Compute the latest reading per device to avoid violating the Rules of Hooks
-  const latestReadingsByDevice = useMemo(() => {
-    const latest = new Map<string, typeof sensorReadings[number]>();
-
-    for (const reading of sensorReadings) {
-      const current = latest.get(reading.deviceId);
-      if (!current || new Date(reading.timestamp) > new Date(current.timestamp)) {
-        latest.set(reading.deviceId, reading);
-      }
-    }
-
-    return latest;
-  }, [sensorReadings]);
-
-  // Get average AQI across all devices
-  const latestReadings = Array.from(latestReadingsByDevice.values());
-  const validReadings = latestReadings.filter(reading => reading.aqi !== undefined);
-  const avgAQI = validReadings.length === 0
+  // Average AQI across devices' latest readings (delivered with /devices)
+  const aqiValues = devices
+    .map(d => d.latestReading?.aqi)
+    .filter((aqi): aqi is number => aqi !== null && aqi !== undefined);
+  const avgAQI = aqiValues.length === 0
     ? 0
-    : Math.round(validReadings.reduce((sum, reading) => sum + reading.aqi, 0) / validReadings.length);
+    : Math.round(aqiValues.reduce((sum, aqi) => sum + aqi, 0) / aqiValues.length);
 
   const handleExport = async (format: 'csv' | 'json', range: '24h' | '7d' | '30d') => {
     try {
@@ -43,7 +28,7 @@ export function Dashboard() {
       }
 
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
 
       const response = await fetch(
         `${API_URL}/homes/${home.id}/export?format=${format}&range=${range}`,

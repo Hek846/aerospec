@@ -1,181 +1,261 @@
 import express, { Router } from 'express';
-import { subHours, subDays, parseISO } from 'date-fns';
 import { authenticateToken, AuthRequest } from '../auth/middleware.js';
-import { getDeviceById, getReadingsForDevice, getHomesForUser } from '../data/loader.js';
-import { AppError } from '../middleware/errorHandler.js';
+import { AppError, asyncHandler } from '../middleware/errorHandler.js';
+import { getPool } from '../db/pool.js';
+import {
+  getDeviceRowById,
+  getUserHomeIds,
+  userHasHomeAccess,
+  mapDevice,
+  mapReading,
+  parseRange,
+  getReadingsForRange,
+  getRawReadingsForRange,
+  DeviceRow,
+  ReadingRow
+} from '../db/queries.js';
 
 const router: Router = express.Router();
 
-// GET /devices/:deviceId/readings?range=24h|7d&page=1&limit=100
-router.get('/:deviceId/readings', authenticateToken, (req: AuthRequest, res) => {
-  const { deviceId } = req.params;
-  const { range = '24h', page = '1', limit = '100' } = req.query;
-  const userId = req.user!.userId;
+interface DeviceListRow extends DeviceRow {
+  room_name: string | null;
+  home_name: string | null;
+}
 
-  const device = getDeviceById(deviceId);
-  if (!device) {
-    throw new AppError('Device not found', 404);
-  }
+// GET /devices - All devices visible to the user, with latest reading
+router.get(
+  '/',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const pool = getPool();
+    const isAdmin = req.user!.role === 'admin';
 
-  // Verify user has access to this device's home
-  const userHomes = getHomesForUser(userId);
-  if (!userHomes.find(h => h.id === device.homeId)) {
-    throw new AppError('Access denied to this device', 403);
-  }
+    const result = isAdmin
+      ? await pool.query<DeviceListRow>(
+          `SELECT d.id, d.serial, d.name, d.home_id, d.room_id, d.firmware_version,
+                  d.last_seen, d.battery_pct, r.name AS room_name, h.name AS home_name
+             FROM devices d
+             LEFT JOIN rooms r ON r.id = d.room_id
+             LEFT JOIN homes h ON h.id = d.home_id
+            ORDER BY d.created_at`
+        )
+      : await pool.query<DeviceListRow>(
+          `SELECT d.id, d.serial, d.name, d.home_id, d.room_id, d.firmware_version,
+                  d.last_seen, d.battery_pct, r.name AS room_name, h.name AS home_name
+             FROM devices d
+             LEFT JOIN rooms r ON r.id = d.room_id
+             LEFT JOIN homes h ON h.id = d.home_id
+            WHERE d.home_id IN (SELECT home_id FROM home_members WHERE user_id = $1)
+            ORDER BY d.created_at`,
+          [req.user!.userId]
+        );
 
-  // Parse pagination parameters
-  const pageNum = Math.max(1, parseInt(page as string, 10));
-  const limitNum = Math.min(1000, Math.max(1, parseInt(limit as string, 10))); // Max 1000 per page
-  const offset = (pageNum - 1) * limitNum;
+    const devices = await Promise.all(
+      result.rows.map(async (row) => {
+        const latestResult = await pool.query<ReadingRow>(
+          'SELECT * FROM sensor_readings WHERE device_id = $1 ORDER BY ts DESC LIMIT 1',
+          [row.id]
+        );
+        const latestRow = latestResult.rows[0];
+        return {
+          ...mapDevice(row),
+          roomName: row.room_name,
+          homeName: row.home_name,
+          latestReading: latestRow ? mapReading(latestRow) : null
+        };
+      })
+    );
 
-  // Get all readings for device
-  const allReadings = getReadingsForDevice(deviceId);
+    res.json({ devices, total: devices.length });
+  })
+);
 
-  // Filter by time range
-  const now = new Date();
-  let cutoffTime: Date;
+// POST /devices/claim - Create or claim an unclaimed device by serial
+router.post(
+  '/claim',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { serial, name, homeId, roomId } = req.body as {
+      serial?: unknown;
+      name?: unknown;
+      homeId?: unknown;
+      roomId?: unknown;
+    };
 
-  switch (range) {
-    case '24h':
-      cutoffTime = subHours(now, 24);
-      break;
-    case '7d':
-      cutoffTime = subDays(now, 7);
-      break;
-    case '30d':
-      cutoffTime = subDays(now, 30);
-      break;
-    default:
-      cutoffTime = subHours(now, 24);
-  }
-
-  const filteredReadings = allReadings.filter(reading =>
-    parseISO(reading.timestamp) >= cutoffTime
-  );
-
-  // Apply pagination
-  const paginatedReadings = filteredReadings.slice(offset, offset + limitNum);
-  const totalPages = Math.ceil(filteredReadings.length / limitNum);
-
-  res.json({
-    deviceId,
-    range,
-    readings: paginatedReadings,
-    pagination: {
-      total: filteredReadings.length,
-      page: pageNum,
-      limit: limitNum,
-      totalPages,
-      hasNextPage: pageNum < totalPages,
-      hasPrevPage: pageNum > 1
+    if (typeof serial !== 'string' || serial.trim().length === 0) {
+      throw new AppError('serial is required', 400);
     }
-  });
-});
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      throw new AppError('name is required', 400);
+    }
+    if (typeof homeId !== 'string' || homeId.length === 0) {
+      throw new AppError('homeId is required', 400);
+    }
+    if (roomId !== undefined && roomId !== null && typeof roomId !== 'string') {
+      throw new AppError('roomId must be a string', 400);
+    }
 
-// GET /compare?roomIds=...&range=...
-router.get('/compare', authenticateToken, (req: AuthRequest, res) => {
-  const { roomIds, range = '24h' } = req.query;
+    if (!(await userHasHomeAccess(req.user!.userId, homeId, req.user!.role))) {
+      throw new AppError('Access denied to this home', 403);
+    }
 
-  if (!roomIds) {
-    throw new AppError('roomIds parameter is required', 400);
-  }
+    const pool = getPool();
 
-  const roomIdArray = (roomIds as string).split(',');
+    if (roomId) {
+      const roomCheck = await pool.query('SELECT 1 FROM rooms WHERE id = $1 AND home_id = $2', [
+        roomId,
+        homeId
+      ]);
+      if ((roomCheck.rowCount ?? 0) === 0) {
+        throw new AppError('Room not found in this home', 404);
+      }
+    }
 
-  // This is a simplified implementation
-  // In a real app, we'd fetch and combine data from multiple rooms
-  res.json({
-    roomIds: roomIdArray,
-    range,
-    message: 'Comparison data endpoint - to be implemented with chart data'
-  });
-});
+    const normalizedSerial = serial.trim();
+    const existing = await pool.query<DeviceRow>(
+      `SELECT id, serial, name, home_id, room_id, firmware_version, last_seen, battery_pct
+         FROM devices WHERE serial = $1`,
+      [normalizedSerial]
+    );
 
-// GET /devices/:deviceId/export?range=24h|7d&format=csv|json
-router.get('/:deviceId/export', authenticateToken, (req: AuthRequest, res) => {
-  const { deviceId } = req.params;
-  const { range = '24h', format = 'json' } = req.query;
-  const userId = req.user!.userId;
+    let deviceRow: DeviceRow;
+    const existingRow = existing.rows[0];
 
-  const device = getDeviceById(deviceId);
+    if (existingRow) {
+      if (existingRow.home_id && existingRow.home_id !== homeId) {
+        throw new AppError('Device is already claimed by another home', 409);
+      }
+      const updated = await pool.query<DeviceRow>(
+        `UPDATE devices SET name = $2, home_id = $3, room_id = $4
+          WHERE id = $1
+          RETURNING id, serial, name, home_id, room_id, firmware_version, last_seen, battery_pct`,
+        [existingRow.id, name.trim(), homeId, roomId ?? null]
+      );
+      deviceRow = updated.rows[0]!;
+    } else {
+      const inserted = await pool.query<DeviceRow>(
+        `INSERT INTO devices (serial, name, home_id, room_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, serial, name, home_id, room_id, firmware_version, last_seen, battery_pct`,
+        [normalizedSerial, name.trim(), homeId, roomId ?? null]
+      );
+      deviceRow = inserted.rows[0]!;
+    }
+
+    res.status(201).json({ device: mapDevice(deviceRow) });
+  })
+);
+
+async function requireDeviceAccess(req: AuthRequest, deviceId: string): Promise<DeviceRow> {
+  const device = await getDeviceRowById(deviceId);
   if (!device) {
     throw new AppError('Device not found', 404);
   }
-
-  // Verify user has access to this device's home
-  const userHomes = getHomesForUser(userId);
-  if (!userHomes.find(h => h.id === device.homeId)) {
-    throw new AppError('Access denied to this device', 403);
+  if (req.user!.role !== 'admin') {
+    const homeIds = await getUserHomeIds(req.user!.userId);
+    if (!device.home_id || !homeIds.includes(device.home_id)) {
+      throw new AppError('Access denied to this device', 403);
+    }
   }
+  return device;
+}
 
-  // Get all readings for device
-  const allReadings = getReadingsForDevice(deviceId);
+// GET /devices/:deviceId/readings?range=24h|7d|30d&page=1&limit=1000
+router.get(
+  '/:deviceId/readings',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { deviceId } = req.params;
+    const range = parseRange(req.query.range);
 
-  // Filter by time range
-  const now = new Date();
-  let cutoffTime: Date;
+    await requireDeviceAccess(req, deviceId);
 
-  switch (range) {
-    case '24h':
-      cutoffTime = subHours(now, 24);
-      break;
-    case '7d':
-      cutoffTime = subDays(now, 7);
-      break;
-    case '30d':
-      cutoffTime = subDays(now, 30);
-      break;
-    default:
-      cutoffTime = subHours(now, 24);
-  }
+    const pageNum = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
+    const limitNum = Math.min(
+      1000,
+      Math.max(1, parseInt(String(req.query.limit ?? '1000'), 10) || 1000)
+    );
+    const offset = (pageNum - 1) * limitNum;
 
-  const filteredReadings = allReadings.filter(reading =>
-    parseISO(reading.timestamp) >= cutoffTime
-  );
+    // Downsampled sets are <= ~500 points, so in-memory pagination is cheap.
+    const readings = await getReadingsForRange(deviceId, range);
+    const paginated = readings.slice(offset, offset + limitNum);
+    const totalPages = Math.max(1, Math.ceil(readings.length / limitNum));
 
-  if (format === 'csv') {
-    // Generate CSV
-    const headers = [
-      'timestamp',
-      'pm25',
-      'pm10',
-      'co2',
-      'temperature',
-      'humidity',
-      'pressure',
-      'vocIndex',
-      'noiseDb',
-      'aqi'
-    ];
-
-    const csvRows = [
-      headers.join(','),
-      ...filteredReadings.map(reading =>
-        headers.map(header => reading[header as keyof typeof reading]).join(',')
-      )
-    ];
-
-    const csvContent = csvRows.join('\n');
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="device-${deviceId}-${range}.csv"`);
-    res.send(csvContent);
-  } else {
-    // JSON export
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="device-${deviceId}-${range}.json"`);
     res.json({
-      device: {
-        id: device.id,
-        name: device.name,
-        deploymentId: device.deploymentId
-      },
-      exportDate: new Date().toISOString(),
+      deviceId,
       range,
-      totalReadings: filteredReadings.length,
-      readings: filteredReadings
+      readings: paginated,
+      pagination: {
+        total: readings.length,
+        page: pageNum,
+        limit: limitNum,
+        totalPages,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      }
     });
-  }
-});
+  })
+);
+
+// GET /devices/:deviceId/export?range=24h|7d|30d&format=csv|json
+router.get(
+  '/:deviceId/export',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const { deviceId } = req.params;
+    const range = parseRange(req.query.range);
+    const format = req.query.format === 'csv' ? 'csv' : 'json';
+
+    const device = await requireDeviceAccess(req, deviceId);
+    const readings = await getRawReadingsForRange(deviceId, range);
+
+    if (format === 'csv') {
+      const headers = [
+        'timestamp',
+        'pm25',
+        'pm10',
+        'co2',
+        'temperature',
+        'humidity',
+        'pressure',
+        'vocIndex',
+        'noiseDb',
+        'aqi'
+      ] as const;
+
+      const csvRows = [
+        headers.join(','),
+        ...readings.map((reading) =>
+          headers.map((header) => String(reading[header] ?? '')).join(',')
+        )
+      ];
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="device-${deviceId}-${range}.csv"`
+      );
+      res.send(csvRows.join('\n'));
+    } else {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="device-${deviceId}-${range}.json"`
+      );
+      res.json({
+        device: {
+          id: device.id,
+          name: device.name,
+          deploymentId: device.serial
+        },
+        exportDate: new Date().toISOString(),
+        range,
+        totalReadings: readings.length,
+        readings
+      });
+    }
+  })
+);
 
 export default router;

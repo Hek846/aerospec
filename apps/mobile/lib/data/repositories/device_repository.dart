@@ -88,4 +88,40 @@ class DeviceRepository {
     if (cached == null) return null;
     return SensorReading.fromJson(cached);
   }
+
+  /// Claim a physical device (by serial) for the current user.
+  ///
+  /// `POST /devices/claim` per PIPELINE.md section 4. Returns the backend
+  /// device id the app must upload readings under.
+  Future<String> claimDevice({
+    required String serial,
+    required String name,
+    String? homeId,
+    String? roomId,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/devices/claim',
+        data: {
+          'serial': serial,
+          'name': name,
+          if (homeId != null) 'homeId': homeId,
+          if (roomId != null) 'roomId': roomId,
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      // Accept both { device: { id } } and flat { id } response shapes.
+      final device = data['device'];
+      final id = device is Map<String, dynamic>
+          ? device['id'] as String?
+          : data['id'] as String?;
+      if (id == null) {
+        throw Exception('Claim response missing device id: $data');
+      }
+      return id;
+    } catch (e) {
+      throw Exception('Failed to claim device: $e');
+    }
+  }
 }

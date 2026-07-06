@@ -1,5 +1,5 @@
-name: sensair
-description: Sensair Mobile App - Air Quality Monitoring
+name: aerospec
+description: AeroSpec Mobile App - Air Quality Monitoring
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -21,6 +21,9 @@ dependencies:
 
   # BLE
   flutter_blue_plus: ^1.31.0
+
+  # Runtime permissions (BLE scan/connect)
+  permission_handler: ^11.0.0
 
   # Maps
   google_maps_flutter: ^2.5.0

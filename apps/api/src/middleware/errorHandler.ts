@@ -1,5 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 
+/**
+ * Express 4 does not forward rejected promises to the error handler;
+ * wrap async route handlers so thrown AppErrors reach errorHandler.
+ */
+export function asyncHandler<Req extends Request>(
+  fn: (req: Req, res: Response, next: NextFunction) => Promise<unknown>
+) {
+  return (req: Req, res: Response, next: NextFunction): void => {
+    fn(req, res, next).catch(next);
+  };
+}
+
 export class AppError extends Error {
   statusCode: number;
 

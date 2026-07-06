@@ -482,38 +482,35 @@ Common HTTP status codes:
 
 ## Data Storage
 
-### In-Memory Fixtures
+### Postgres + TimescaleDB
 
-Data is loaded from JSON files at startup:
+Data lives in Postgres (TimescaleDB recommended for the `sensor_readings`
+hypertable, but plain Postgres 14+ works too). Connection is configured via
+`DATABASE_URL`.
 
-```
-packages/data/src/data/
-├── users.json
-├── homes.json
-├── rooms.json
-├── devices.json
-├── sensorReadings.json
-├── alertRules.json
-├── alertEvents.json
-├── configProfiles.json
-└── reportSummaries.json
-```
+- Migrations: `src/db/migrations/*.sql`, applied in order and tracked in
+  `schema_migrations`. They run automatically on boot, or manually with
+  `pnpm --filter @aerospec/api db:migrate`.
+- Seed: `pnpm --filter @aerospec/api db:seed` creates the demo admin
+  (`admin@aerospec.io` / `aerospec-admin`), the "Lynnwood Home" with 6 rooms
+  and devices (`AS-0001`..`AS-0006`), and 7 days of simulated readings.
+  Setting `SEED_ON_BOOT=true` seeds automatically when the users table is
+  empty.
 
-### Data Loader
+### Query Helpers
 
-The `data/loader.ts` module provides helper functions:
+The `db/queries.ts` module provides shared row types, camelCase response
+mappers, and access-control helpers:
 
 ```typescript
 import {
-  getUserById,
-  getHomeById,
-  getRoomById,
-  getDeviceById,
-  getReadingsForDevice,
-  getLatestReadingForDevice,
   getHomesForUser,
-  getRoomsByHomeId
-} from './data/loader.js';
+  getRoomsByHomeId,
+  getDeviceRowById,
+  getLatestReading,
+  getReadingsForRange,
+  userHasHomeAccess
+} from './db/queries.js';
 ```
 
 ## Development

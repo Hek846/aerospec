@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Device } from '../types';
 import { AQIBadge } from './AQIBadge';
-import { useLatestReading, useRoom } from '../hooks/useData';
+import { useRoom } from '../hooks/useData';
 import { formatDistanceToNow } from 'date-fns';
 import './DeviceCard.css';
 
@@ -10,10 +10,12 @@ interface DeviceCardProps {
 }
 
 export function DeviceCard({ device }: DeviceCardProps) {
-  const latestReading = useLatestReading(device.id);
+  const latestReading = device.latestReading;
   const room = useRoom(device.roomId);
 
-  const lastSeenDistance = formatDistanceToNow(new Date(device.lastSeen), { addSuffix: true });
+  const lastSeenDistance = device.lastSeen
+    ? formatDistanceToNow(new Date(device.lastSeen), { addSuffix: true })
+    : 'never seen';
 
   const getBatteryIcon = (level: number) => {
     if (level >= 75) return '🔋'; // Full
@@ -22,19 +24,13 @@ export function DeviceCard({ device }: DeviceCardProps) {
     return '🟥'; // Critical (red square)
   };
 
-  const getSignalIcon = (rssi: number) => {
-    if (rssi >= -50) return '📶'; // strong signal
-    if (rssi >= -70) return '📳'; // medium signal
-    return '📡'; // weak signal
-  };
-
   return (
     <Link to={`/devices/${device.id}`} className="device-card-link">
       <div className={`device-card ${device.status === 'offline' ? 'device-card--offline' : ''}`}>
         <div className="device-card-header">
           <div className="device-info">
             <h3 className="device-name">{device.name}</h3>
-            <p className="device-room">{room?.name || 'Unknown Room'}</p>
+            <p className="device-room">{room?.name || 'Unassigned'}</p>
           </div>
           <div className={`device-status device-status--${device.status}`}>
             <span className="status-indicator"></span>
@@ -42,7 +38,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
           </div>
         </div>
 
-        {latestReading && (
+        {latestReading && latestReading.aqi !== null && (
           <div className="device-aqi">
             <AQIBadge aqi={latestReading.aqi} size="large" showBand={true} />
           </div>
@@ -53,15 +49,21 @@ export function DeviceCard({ device }: DeviceCardProps) {
             <>
               <div className="metric-item">
                 <span className="metric-item-label">PM2.5</span>
-                <span className="metric-item-value">{latestReading.pm25.toFixed(1)} µg/m³</span>
+                <span className="metric-item-value">
+                  {latestReading.pm25 !== null ? `${latestReading.pm25.toFixed(1)} µg/m³` : '—'}
+                </span>
               </div>
               <div className="metric-item">
-                <span className="metric-item-label">CO₂</span>
-                <span className="metric-item-value">{latestReading.co2.toFixed(0)} ppm</span>
+                <span className="metric-item-label">Humidity</span>
+                <span className="metric-item-value">
+                  {latestReading.humidity !== null ? `${latestReading.humidity.toFixed(0)} %` : '—'}
+                </span>
               </div>
               <div className="metric-item">
                 <span className="metric-item-label">Temp</span>
-                <span className="metric-item-value">{latestReading.temperature.toFixed(1)}°C</span>
+                <span className="metric-item-value">
+                  {latestReading.temperature !== null ? `${latestReading.temperature.toFixed(1)}°C` : '—'}
+                </span>
               </div>
             </>
           )}
@@ -69,12 +71,11 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
         <div className="device-footer">
           <div className="device-meta">
-            <span title={`Battery: ${device.batteryLevel}%`}>
-              {getBatteryIcon(device.batteryLevel)} {device.batteryLevel}%
-            </span>
-            <span title={`WiFi Signal: ${device.wifiRssi} dBm`}>
-              {getSignalIcon(device.wifiRssi)}
-            </span>
+            {device.batteryLevel !== null && (
+              <span title={`Battery: ${device.batteryLevel}%`}>
+                {getBatteryIcon(device.batteryLevel)} {device.batteryLevel}%
+              </span>
+            )}
             <span className="device-id">{device.deploymentId}</span>
           </div>
           <div className="device-last-seen">

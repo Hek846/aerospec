@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { clearDataCache } from '../hooks/useData';
 
 interface User {
   id: string;
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
 
+      clearDataCache();
       setToken(data.token);
       setUser(data.user);
 
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    clearDataCache();
     setToken(null);
     setUser(null);
     localStorage.removeItem('authToken');

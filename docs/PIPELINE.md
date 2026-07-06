@@ -101,13 +101,42 @@ preserved so the web frontend keeps working; new routes marked (new).
 | `GET /homes` / `POST /homes` (new) | homes for user / create home |
 | `GET /homes/:id/rooms` / `POST /homes/:id/rooms` (new) | rooms + latest AQI |
 | `GET /devices` (new) | user's devices with latest reading |
-| `POST /devices/claim` (new) | serial, name, homeId, roomId? |
-| `GET /devices/:id/readings?range=24h\|7d\|30d` | time-bucketed via TimescaleDB |
+| `POST /devices/claim` (new) | serial, name, homeId, roomId? -> `{ "device": { "id", ... } }` (the app stores `device.id` per serial and uploads readings under it) |
+| `GET /devices/:id/readings?range=24h\|7d\|30d` | time-bucketed (see below) |
 | `GET /devices/:id/export`, `GET /homes/:id/export` | CSV/JSON |
 | `POST /ingest/readings` (new) | see section 2 |
 | `GET /map/cells?bbox=&hours=` (new) | privacy-fuzzed grid aggregation |
 | `GET /external/openaq/latest?bbox=` (new) | OpenAQ v3 proxy w/ cache |
 | `/alerts`, `/reports`, `/compare`, `/admin` | same shapes, DB-backed |
+
+### Implementation notes (binding for clients)
+
+- JWT payload is `{ userId, role, email }` with role `user` | `admin`
+  (the legacy `owner`/`standard` roles are gone; home-level ownership lives
+  in `home_members.role`).
+- `GET /devices` returns `{ devices: [...], total }`; each device carries
+  `deploymentId` (= serial), `status` (`online` when `last_seen` < 10 min
+  ago), `batteryLevel` (percent), `roomName`, `homeName` and `latestReading`
+  (camelCase SensorReading with `pm25` = corrected value when available).
+- `GET /devices/:id/readings`: `24h` returns raw 10-minute points; `7d`
+  averages into 30-minute buckets (~336 points); `30d` into 2-hour buckets
+  (~360 points). Uses TimescaleDB `time_bucket` when available, falling back
+  to `date_bin` on plain Postgres. Response keeps the
+  `{ deviceId, range, readings, pagination }` envelope, readings ascending.
+- `GET /map/cells` responds `{ cells: [...], total, hours }` with cells
+  `{ lat, lon, deviceCount, avgPm25, avgAqi, lastTs }`.
+- `GET /external/openaq/latest` responds `{ stations: [...], total, cached }`
+  with stations `{ id, name, lat, lon, pm25, aqi, lastUpdated }`.
+- `/reports/weekly` computes reports on the fly (no stored reports). Report
+  ids are `weekly-<homeId>`; `GET /reports/:id` and `/reports/:id/export`
+  recompute. Metric stats include `minValue` in addition to
+  avg/max/alertCount.
+- `POST /homes` accepts `{ name, lat?, lon?, city?, region?, timezone? }`;
+  the creator becomes the home's `owner` in `home_members`.
+- `POST /homes/:id/rooms` accepts `{ name, type?, floor? }`.
+- `POST /devices/claim` `{ serial, name, homeId, roomId? }` creates the
+  device row if the serial is unknown, claims it when unclaimed, and returns
+  409 if another home already claimed it.
 
 ### Privacy fuzzing (`/map/cells`)
 
@@ -120,10 +149,13 @@ coordinates.
 ### OpenAQ proxy
 
 `GET /external/openaq/latest?bbox=minLon,minLat,maxLon,maxLat` proxies OpenAQ
-v3 (`https://api.openaq.org/v3/locations?bbox=...&parameters_id=2`), attaches
+v3 (`https://api.openaq.org/v3/locations?bbox=...&limit=100`), attaches
 `X-API-Key` from env `OPENAQ_API_KEY` (works unauthenticated with low rate
-limits), caches responses in memory for 10 minutes, and normalizes to
-`[{ id, name, lat, lon, pm25, aqi, lastUpdated }]`.
+limits), caches responses in memory for 10 minutes keyed by bbox, and
+normalizes to `[{ id, name, lat, lon, pm25, aqi, lastUpdated }]`. PM2.5 is
+taken from each location's embedded `sensors[].latest` value when present,
+otherwise `null` (no per-location follow-up requests). Upstream failures
+return `502 { error }`.
 
 ## 5. Environment
 
@@ -150,3 +182,14 @@ boot), web (nginx). `pnpm db:seed` creates the demo admin
    `/ingest/readings`, update high-water mark, then stay subscribed to `$D`
    live samples (display + upload periodically).
 4. Sync must survive partial failure: server-side dedupe makes retries safe.
+
+Mobile implementation notes (phase 1):
+
+- The high-water mark is advanced per successfully uploaded batch (not per
+  transfer), so an interrupted upload only resends the failed batch.
+- History records with `NA` date/time (logged before the clock was set) are
+  displayed but never uploaded — `ts` is required by the ingest contract.
+- Live `$D` samples are buffered locally and flushed every ~2 minutes; a
+  failed flush keeps the buffer and retries on the next tick.
+- `POST /homes` is called with `{ "name" }` only when the user has no home
+  yet ("My Home"); location fields are optional at creation time.

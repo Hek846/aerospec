@@ -1,51 +1,77 @@
-import { useMemo } from 'react';
-import { Device, Home, Room, User, SensorReading, AlertRule, AlertEvent, ConfigProfile, ReportSummary } from '../types';
+import { useEffect, useMemo, useState } from 'react';
+import { Device, Home, Room, SensorReading } from '../types';
+import { api } from '../lib/api';
 
-// Import JSON data
-import devicesData from '../data/devices.json';
-import homesData from '../data/homes.json';
-import roomsData from '../data/rooms.json';
-import usersData from '../data/users.json';
-import sensorReadingsData from '../data/sensorReadings.json';
-import alertRulesData from '../data/alertRules.json';
-import alertEventsData from '../data/alertEvents.json';
-import configProfilesData from '../data/configProfiles.json';
-import reportSummariesData from '../data/reportSummaries.json';
+// Module-level cache so many components can share one in-flight request.
+// Invalidated on login/logout via clearDataCache().
+const cache = new Map<string, Promise<unknown>>();
 
-export function useDevices(): Device[] {
-  return useMemo(() => devicesData as Device[], []);
+function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  if (!cache.has(key)) {
+    const promise = fetcher().catch(err => {
+      cache.delete(key); // don't cache failures
+      throw err;
+    });
+    cache.set(key, promise);
+  }
+  return cache.get(key) as Promise<T>;
 }
 
+export function clearDataCache() {
+  cache.clear();
+}
+
+function useCachedFetch<T>(key: string, fetcher: () => Promise<T>, fallback: T): T {
+  const [data, setData] = useState<T>(fallback);
+
+  useEffect(() => {
+    let alive = true;
+    cached(key, fetcher)
+      .then(result => {
+        if (alive) setData(result);
+      })
+      .catch(err => {
+        console.error(`Failed to load ${key}:`, err);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return data;
+}
+
+const EMPTY: never[] = [];
+
 export function useHomes(): Home[] {
-  return useMemo(() => homesData as Home[], []);
+  return useCachedFetch<Home[]>(
+    'homes',
+    () => api.getHomes().then(r => r.homes as Home[]),
+    EMPTY
+  );
+}
+
+export function useDevices(): Device[] {
+  return useCachedFetch<Device[]>(
+    'devices',
+    () => api.getDevices().then(r => r.devices as Device[]),
+    EMPTY
+  );
 }
 
 export function useRooms(): Room[] {
-  return useMemo(() => roomsData as Room[], []);
-}
-
-export function useUsers(): User[] {
-  return useMemo(() => usersData as User[], []);
-}
-
-export function useSensorReadings(): SensorReading[] {
-  return useMemo(() => sensorReadingsData as SensorReading[], []);
-}
-
-export function useAlertRules(): AlertRule[] {
-  return useMemo(() => alertRulesData as AlertRule[], []);
-}
-
-export function useAlertEvents(): AlertEvent[] {
-  return useMemo(() => alertEventsData as AlertEvent[], []);
-}
-
-export function useConfigProfiles(): ConfigProfile[] {
-  return useMemo(() => configProfilesData as ConfigProfile[], []);
-}
-
-export function useReportSummaries(): ReportSummary[] {
-  return useMemo(() => reportSummariesData as ReportSummary[], []);
+  return useCachedFetch<Room[]>(
+    'rooms',
+    async () => {
+      const { homes } = await api.getHomes();
+      const roomLists = await Promise.all(
+        homes.map(h => api.getHomeRooms(h.id).then(r => r.rooms as Room[]))
+      );
+      return roomLists.flat();
+    },
+    EMPTY
+  );
 }
 
 // Helper hooks
@@ -59,22 +85,45 @@ export function useHome(homeId: string): Home | undefined {
   return useMemo(() => homes.find(h => h.id === homeId), [homes, homeId]);
 }
 
-export function useRoom(roomId: string): Room | undefined {
+export function useRoom(roomId: string | null | undefined): Room | undefined {
   const rooms = useRooms();
   return useMemo(() => rooms.find(r => r.id === roomId), [rooms, roomId]);
 }
 
-export function useDeviceSensorReadings(deviceId: string): SensorReading[] {
-  const readings = useSensorReadings();
-  return useMemo(
-    () => readings.filter(r => r.deviceId === deviceId).sort((a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    ),
-    [readings, deviceId]
-  );
+export interface ReadingsState {
+  readings: SensorReading[];
+  loading: boolean;
+  error: string | null;
+}
+
+export function useDeviceReadings(
+  deviceId: string | undefined,
+  range: '24h' | '7d' | '30d'
+): ReadingsState {
+  const [state, setState] = useState<ReadingsState>({ readings: [], loading: false, error: null });
+
+  useEffect(() => {
+    if (!deviceId) return;
+    let alive = true;
+    setState(s => ({ ...s, loading: true, error: null }));
+    cached(`readings:${deviceId}:${range}`, () =>
+      api.getDeviceReadings(deviceId, range).then(r => r.readings as SensorReading[])
+    )
+      .then(readings => {
+        if (alive) setState({ readings, loading: false, error: null });
+      })
+      .catch(err => {
+        if (alive) setState({ readings: [], loading: false, error: err.message });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [deviceId, range]);
+
+  return state;
 }
 
 export function useLatestReading(deviceId: string): SensorReading | undefined {
-  const readings = useDeviceSensorReadings(deviceId);
-  return useMemo(() => readings[readings.length - 1], [readings]);
+  const device = useDevice(deviceId);
+  return device?.latestReading ?? undefined;
 }

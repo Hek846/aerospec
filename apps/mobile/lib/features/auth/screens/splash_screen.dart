@@ -69,7 +69,7 @@ class SplashScreen extends ConsumerWidget {
                 ),
                 child: Center(
                   child: Text(
-                    'S',
+                    'A',
                     style: TextStyle(
                       fontSize: 64,
                       fontWeight: FontWeight.bold,
@@ -82,7 +82,7 @@ class SplashScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               const Text(
-                'Sensair',
+                'AeroSpec',
                 style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.bold,

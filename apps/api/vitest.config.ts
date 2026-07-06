@@ -6,6 +6,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./src/test/setup.ts'],
+    // exFAT volumes sprout AppleDouble ._* copies of every file
+    exclude: ['**/node_modules/**', '**/dist/**', '**/._*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

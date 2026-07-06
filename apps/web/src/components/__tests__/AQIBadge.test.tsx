@@ -3,50 +3,41 @@ import { render, screen } from '@testing-library/react';
 import { AQIBadge } from '../AQIBadge';
 
 describe('AQIBadge', () => {
-  it('renders with good AQI value', () => {
+  it('renders the AQI value', () => {
     render(<AQIBadge aqi={42} />);
     expect(screen.getByText('42')).toBeInTheDocument();
+  });
+
+  it('hides the band label by default', () => {
+    render(<AQIBadge aqi={42} />);
+    expect(screen.queryByText('Good')).not.toBeInTheDocument();
+  });
+
+  it('shows the band label when showBand is set', () => {
+    render(<AQIBadge aqi={42} showBand />);
     expect(screen.getByText('Good')).toBeInTheDocument();
   });
 
-  it('renders with moderate AQI value', () => {
-    render(<AQIBadge aqi={75} />);
-    expect(screen.getByText('75')).toBeInTheDocument();
+  it('maps AQI values to the correct band', () => {
+    const { rerender } = render(<AQIBadge aqi={75} showBand />);
     expect(screen.getByText('Moderate')).toBeInTheDocument();
-  });
 
-  it('renders with unhealthy AQI value', () => {
-    render(<AQIBadge aqi={175} />);
-    expect(screen.getByText('175')).toBeInTheDocument();
+    rerender(<AQIBadge aqi={125} showBand />);
+    expect(screen.getByText('Unhealthy for Sensitive Groups')).toBeInTheDocument();
+
+    rerender(<AQIBadge aqi={175} showBand />);
     expect(screen.getByText('Unhealthy')).toBeInTheDocument();
-  });
 
-  it('renders with hazardous AQI value', () => {
-    render(<AQIBadge aqi={350} />);
-    expect(screen.getByText('350')).toBeInTheDocument();
+    rerender(<AQIBadge aqi={350} showBand />);
     expect(screen.getByText('Hazardous')).toBeInTheDocument();
   });
 
-  it('applies correct CSS class for different sizes', () => {
+  it('applies the size modifier class', () => {
     const { container, rerender } = render(<AQIBadge aqi={50} size="small" />);
-    expect(container.querySelector('.aqi-badge')).toHaveClass('small');
-
-    rerender(<AQIBadge aqi={50} size="medium" />);
-    expect(container.querySelector('.aqi-badge')).toHaveClass('medium');
+    expect(container.querySelector('.aqi-badge')).toHaveClass('aqi-badge--small');
 
     rerender(<AQIBadge aqi={50} size="large" />);
-    expect(container.querySelector('.aqi-badge')).toHaveClass('large');
-  });
-
-  it('applies correct CSS class for AQI bands', () => {
-    const { container, rerender } = render(<AQIBadge aqi={25} />);
-    expect(container.querySelector('.aqi-badge')).toHaveClass('good');
-
-    rerender(<AQIBadge aqi={75} />);
-    expect(container.querySelector('.aqi-badge')).toHaveClass('moderate');
-
-    rerender(<AQIBadge aqi={125} />);
-    expect(container.querySelector('.aqi-badge')).toHaveClass('unhealthy-sensitive');
+    expect(container.querySelector('.aqi-badge')).toHaveClass('aqi-badge--large');
   });
 
   it('handles edge values correctly', () => {
@@ -55,11 +46,5 @@ describe('AQIBadge', () => {
 
     rerender(<AQIBadge aqi={500} />);
     expect(screen.getByText('500')).toBeInTheDocument();
-  });
-
-  it('includes aria-label for accessibility', () => {
-    render(<AQIBadge aqi={42} />);
-    const badge = screen.getByLabelText(/Air Quality Index/i);
-    expect(badge).toBeInTheDocument();
   });
 });

@@ -26,15 +26,15 @@ export default function Login() {
     }
   };
 
-  // Quick login buttons for demo users
-  const quickLogin = async (userEmail: string) => {
-    setEmail(userEmail);
-    setPassword('demo'); // Demo password
+  // Quick login as the seeded demo admin
+  const quickLogin = async () => {
+    setEmail('admin@aerospec.io');
+    setPassword('aerospec-admin');
     setError('');
     setIsLoading(true);
 
     try {
-      await login(userEmail, 'demo');
+      await login('admin@aerospec.io', 'aerospec-admin');
       navigate('/');
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -124,17 +124,9 @@ export default function Login() {
         <div className="quick-login">
           <p className="hint">Quick login as demo user</p>
           <div className="quick-actions">
-            <button onClick={() => quickLogin('alice@example.com')} disabled={isLoading}>
-              <div className="quick-title">Alice (Owner)</div>
-              <div className="quick-sub">alice@example.com</div>
-            </button>
-            <button onClick={() => quickLogin('bob@example.com')} disabled={isLoading}>
-              <div className="quick-title">Bob (Standard)</div>
-              <div className="quick-sub">bob@example.com</div>
-            </button>
-            <button onClick={() => quickLogin('carol@example.com')} disabled={isLoading}>
-              <div className="quick-title">Carol (Admin)</div>
-              <div className="quick-sub">carol@example.com</div>
+            <button onClick={quickLogin} disabled={isLoading}>
+              <div className="quick-title">Demo Admin</div>
+              <div className="quick-sub">admin@aerospec.io</div>
             </button>
           </div>
         </div>

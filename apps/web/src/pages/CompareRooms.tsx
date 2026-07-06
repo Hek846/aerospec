@@ -1,27 +1,27 @@
-import { useState, useMemo } from 'react';
-import { useRooms, useDevices, useSensorReadings } from '../hooks/useData';
+import { useState, useMemo, useEffect } from 'react';
+import { useRooms, useDevices } from '../hooks/useData';
+import { api } from '../lib/api';
+import { SensorReading } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { format } from 'date-fns';
 import './CompareRooms.css';
 
 type TimeRange = '24h' | '7d' | '30d';
-type Metric = 'aqi' | 'pm25' | 'pm10' | 'co2' | 'temperature' | 'humidity' | 'vocIndex' | 'noiseDb';
+type Metric = 'aqi' | 'pm25' | 'pm10' | 'temperature' | 'humidity' | 'pressure';
 
 interface ChartDataPoint {
   timestamp: string;
   displayTime: string;
-  [key: string]: string | number;
+  [key: string]: string | number | null;
 }
 
 const METRIC_CONFIG: Record<Metric, { label: string; unit: string; color: string }> = {
   aqi: { label: 'AQI', unit: '', color: '#6366f1' },
   pm25: { label: 'PM2.5', unit: 'µg/m³', color: '#ec4899' },
   pm10: { label: 'PM10', unit: 'µg/m³', color: '#f97316' },
-  co2: { label: 'CO₂', unit: 'ppm', color: '#14b8a6' },
   temperature: { label: 'Temperature', unit: '°C', color: '#ef4444' },
   humidity: { label: 'Humidity', unit: '%', color: '#3b82f6' },
-  vocIndex: { label: 'VOC Index', unit: '', color: '#8b5cf6' },
-  noiseDb: { label: 'Noise', unit: 'dB', color: '#f59e0b' },
+  pressure: { label: 'Pressure', unit: 'hPa', color: '#14b8a6' },
 };
 
 const ROOM_COLORS = [
@@ -32,11 +32,11 @@ const ROOM_COLORS = [
 export function CompareRooms() {
   const rooms = useRooms();
   const devices = useDevices();
-  const allReadings = useSensorReadings();
 
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
   const [selectedMetric, setSelectedMetric] = useState<Metric>('aqi');
+  const [readingsByDevice, setReadingsByDevice] = useState<Record<string, SensorReading[]>>({});
 
   // Toggle room selection
   const toggleRoom = (roomId: string) => {
@@ -47,25 +47,32 @@ export function CompareRooms() {
     );
   };
 
-  // Get filtered readings based on time range
-  const getFilteredReadings = useMemo(() => {
-    const now = new Date();
-    const cutoff = new Date(now);
+  // Fetch readings from the API for every selected room's device
+  useEffect(() => {
+    let alive = true;
+    const deviceIds = selectedRoomIds
+      .map(roomId => rooms.find(r => r.id === roomId)?.deviceId)
+      .filter((id): id is string => !!id);
 
-    switch (timeRange) {
-      case '24h':
-        cutoff.setHours(now.getHours() - 24);
-        break;
-      case '7d':
-        cutoff.setDate(now.getDate() - 7);
-        break;
-      case '30d':
-        cutoff.setDate(now.getDate() - 30);
-        break;
-    }
+    Promise.all(
+      deviceIds.map(deviceId =>
+        api.getDeviceReadings(deviceId, timeRange)
+          .then(r => [deviceId, r.readings as SensorReading[]] as const)
+          .catch(() => [deviceId, [] as SensorReading[]] as const)
+      )
+    ).then(entries => {
+      if (alive) setReadingsByDevice(Object.fromEntries(entries));
+    });
 
-    return allReadings.filter(r => new Date(r.timestamp) >= cutoff);
-  }, [allReadings, timeRange]);
+    return () => {
+      alive = false;
+    };
+  }, [selectedRoomIds, timeRange, rooms]);
+
+  const getFilteredReadings = useMemo(
+    () => Object.values(readingsByDevice).flat(),
+    [readingsByDevice]
+  );
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -120,14 +127,16 @@ export function CompareRooms() {
       const roomReadings = getFilteredReadings.filter(r => r.deviceId === device.id);
       if (roomReadings.length === 0) return null;
 
-      const values = roomReadings.map(r => r[selectedMetric]).filter(v => v !== null && v !== undefined);
+      const values = roomReadings
+        .map(r => r[selectedMetric])
+        .filter((v): v is number => v !== null && v !== undefined);
       if (values.length === 0) return null;
 
       const sorted = [...values].sort((a, b) => a - b);
       const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
       const min = sorted[0];
       const max = sorted[sorted.length - 1];
-      const current = roomReadings[roomReadings.length - 1][selectedMetric];
+      const current = roomReadings[roomReadings.length - 1][selectedMetric] ?? values[values.length - 1];
 
       return {
         room,

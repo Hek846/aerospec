@@ -1,226 +1,206 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { api } from '../lib/api';
-import { AQIBadge } from '../components/AQIBadge';
-import { useHomes, useDevices } from '../hooks/useData';
+import { useHomes } from '../hooks/useData';
+import { MapCell, OpenAQStation } from '../types';
 import './MapView.css';
 
-interface Room {
-  id: string;
-  name: string;
-  homeId: string;
-  floor: number;
-  deviceCount: number;
-}
+const OSM_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+  },
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+};
 
-interface DeviceWithReading {
-  id: string;
-  name: string;
-  roomId: string;
-  status: 'online' | 'offline';
-  latestAqi?: number;
-  latestPm25?: number;
-  latestCo2?: number;
-  lastSeen: string;
+function aqiColor(aqi: number | null): string {
+  if (aqi === null) return '#9ca3af';
+  if (aqi <= 50) return '#22c55e';
+  if (aqi <= 100) return '#eab308';
+  if (aqi <= 150) return '#f97316';
+  if (aqi <= 200) return '#ef4444';
+  if (aqi <= 300) return '#a855f7';
+  return '#7f1d1d';
 }
 
 export function MapView() {
-  const navigate = useNavigate();
   const homes = useHomes();
-  const devices = useDevices();
-  const [selectedHome, setSelectedHome] = useState<string>('');
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const [showAeroSpec, setShowAeroSpec] = useState(true);
+  const [showOpenAQ, setShowOpenAQ] = useState(true);
+  const [cells, setCells] = useState<MapCell[]>([]);
+  const [stations, setStations] = useState<OpenAQStation[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const loadData = useCallback(async () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const bounds = map.getBounds();
+    const bbox = [
+      bounds.getWest().toFixed(4),
+      bounds.getSouth().toFixed(4),
+      bounds.getEast().toFixed(4),
+      bounds.getNorth().toFixed(4),
+    ].join(',');
+
+    setLoading(true);
+    const [cellsResult, stationsResult] = await Promise.allSettled([
+      api.getMapCells(bbox, 24),
+      api.getOpenAQLatest(bbox),
+    ]);
+    setLoading(false);
+
+    if (cellsResult.status === 'fulfilled') {
+      setCells(cellsResult.value.cells as MapCell[]);
+    }
+    if (stationsResult.status === 'fulfilled') {
+      setStations(stationsResult.value.stations as OpenAQStation[]);
+    }
+  }, []);
+
+  // Initialize map once
   useEffect(() => {
-    if (homes.length > 0 && !selectedHome) {
-      setSelectedHome(homes[0].id);
-    }
-  }, [homes, selectedHome]);
+    if (!mapContainer.current || mapRef.current) return;
 
+    const map = new maplibregl.Map({
+      container: mapContainer.current,
+      style: OSM_STYLE,
+      center: [-122.3053, 47.8279], // Lynnwood, WA default
+      zoom: 10,
+    });
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    mapRef.current = map;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const debouncedLoad = () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadData, 400);
+    };
+
+    map.on('load', loadData);
+    map.on('moveend', debouncedLoad);
+
+    return () => {
+      clearTimeout(timer);
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [loadData]);
+
+  // Recenter on the user's first home once homes load
   useEffect(() => {
-    if (selectedHome) {
-      loadRooms();
+    const home = homes[0];
+    if (home && mapRef.current && home.location) {
+      mapRef.current.setCenter([home.location.lon, home.location.lat]);
     }
-  }, [selectedHome]);
+  }, [homes]);
 
-  const loadRooms = async () => {
-    if (!selectedHome) return;
+  // Render markers whenever data or layer toggles change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
 
-    try {
-      setLoading(true);
-      const data = await api.getHomeRooms(selectedHome);
-      setRooms(data.rooms);
-    } catch (error) {
-      console.error('Failed to load rooms:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
 
-  const getDevicesInRoom = (roomId: string): DeviceWithReading[] => {
-    return devices.filter(d => d.roomId === roomId).map(device => ({
-      id: device.id,
-      name: device.name,
-      roomId: device.roomId,
-      status: device.status,
-      latestAqi: undefined, // Would be loaded from latest readings
-      latestPm25: undefined,
-      latestCo2: undefined,
-      lastSeen: device.lastSeen
-    }));
-  };
+    if (showAeroSpec) {
+      for (const cell of cells) {
+        const el = document.createElement('div');
+        el.className = 'map-marker map-marker--cell';
+        el.style.backgroundColor = aqiColor(cell.avgAqi);
+        el.textContent = cell.avgAqi !== null ? String(Math.round(cell.avgAqi)) : '?';
 
-  const getRoomAverageAqi = (roomId: string): number | null => {
-    const roomDevices = getDevicesInRoom(roomId);
-    if (roomDevices.length === 0) return null;
+        const popup = new maplibregl.Popup({ offset: 12 }).setHTML(
+          `<div class="map-popup">
+            <strong>AeroSpec area</strong><br/>
+            ${cell.deviceCount} device${cell.deviceCount === 1 ? '' : 's'}<br/>
+            Avg AQI: ${cell.avgAqi !== null ? Math.round(cell.avgAqi) : '—'}<br/>
+            Avg PM2.5: ${cell.avgPm25 !== null ? cell.avgPm25.toFixed(1) + ' µg/m³' : '—'}
+          </div>`
+        );
 
-    // In a real implementation, we would fetch latest readings for all devices
-    // For now, return a placeholder value
-    return 50; // Moderate AQI
-  };
-
-  const groupRoomsByFloor = () => {
-    const grouped = rooms.reduce((acc, room) => {
-      if (!acc[room.floor]) {
-        acc[room.floor] = [];
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([cell.lon, cell.lat])
+          .setPopup(popup)
+          .addTo(map);
+        markersRef.current.push(marker);
       }
-      acc[room.floor].push(room);
-      return acc;
-    }, {} as Record<number, Room[]>);
+    }
 
-    return Object.entries(grouped)
-      .sort(([a], [b]) => Number(b) - Number(a)) // Sort floors descending
-      .map(([floor, roomsList]) => ({
-        floor: Number(floor),
-        rooms: roomsList
-      }));
-  };
+    if (showOpenAQ) {
+      for (const station of stations) {
+        const el = document.createElement('div');
+        el.className = 'map-marker map-marker--station';
+        el.style.borderColor = aqiColor(station.aqi);
 
-  const handleDeviceClick = (deviceId: string) => {
-    navigate(`/devices/${deviceId}`);
-  };
+        const popup = new maplibregl.Popup({ offset: 12 }).setHTML(
+          `<div class="map-popup">
+            <strong>${station.name}</strong><br/>
+            OpenAQ public station<br/>
+            PM2.5: ${station.pm25 !== null ? station.pm25.toFixed(1) + ' µg/m³' : '—'}<br/>
+            AQI: ${station.aqi !== null ? Math.round(station.aqi) : '—'}
+          </div>`
+        );
 
-  if (homes.length === 0) {
-    return (
-      <div className="map-view-empty">
-        <h1>Map View</h1>
-        <p>No homes found. Add a home to get started.</p>
-      </div>
-    );
-  }
-
-  const selectedHomeData = homes.find(h => h.id === selectedHome);
-  const floorGroups = groupRoomsByFloor();
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([station.lon, station.lat])
+          .setPopup(popup)
+          .addTo(map);
+        markersRef.current.push(marker);
+      }
+    }
+  }, [cells, stations, showAeroSpec, showOpenAQ]);
 
   return (
     <div className="map-view">
       <header className="map-header">
-        <h1>Map View</h1>
-        <div className="home-selector">
-          <label htmlFor="home-select">Select Home:</label>
-          <select
-            id="home-select"
-            value={selectedHome}
-            onChange={(e) => setSelectedHome(e.target.value)}
-          >
-            {homes.map(home => (
-              <option key={home.id} value={home.id}>
-                {home.name}
-              </option>
-            ))}
-          </select>
+        <div>
+          <h1>Regional Map</h1>
+          <p className="map-subtitle">
+            Crowd-sourced AeroSpec readings (aggregated by area for privacy) and OpenAQ public stations
+          </p>
+        </div>
+        <div className="map-controls">
+          <label className="map-toggle">
+            <input
+              type="checkbox"
+              checked={showAeroSpec}
+              onChange={e => setShowAeroSpec(e.target.checked)}
+            />
+            AeroSpec sensors ({cells.length})
+          </label>
+          <label className="map-toggle">
+            <input
+              type="checkbox"
+              checked={showOpenAQ}
+              onChange={e => setShowOpenAQ(e.target.checked)}
+            />
+            OpenAQ stations ({stations.length})
+          </label>
+          {loading && <span className="map-loading-indicator">Updating…</span>}
         </div>
       </header>
 
-      {selectedHomeData && (
-        <div className="home-info">
-          <h2>{selectedHomeData.name}</h2>
-          <p>{selectedHomeData.location.city}, {selectedHomeData.location.region}</p>
-          <div className="home-stats">
-            <span>{rooms.length} rooms</span>
-            <span>•</span>
-            <span>{devices.filter(d => rooms.some(r => r.id === d.roomId)).length} devices</span>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="map-loading">Loading rooms...</div>
-      ) : (
-        <div className="floor-plans">
-          {floorGroups.length === 0 ? (
-            <div className="no-rooms">
-              <p>No rooms found in this home.</p>
-            </div>
-          ) : (
-            floorGroups.map(({ floor, rooms: floorRooms }) => (
-              <div key={floor} className="floor-section">
-                <h3 className="floor-title">
-                  {floor === 0 ? 'Ground Floor' : floor === 1 ? '1st Floor' : floor === 2 ? '2nd Floor' : `${floor}th Floor`}
-                </h3>
-                <div className="rooms-grid">
-                  {floorRooms.map(room => {
-                    const roomDevices = getDevicesInRoom(room.id);
-                    const avgAqi = getRoomAverageAqi(room.id);
-                    const onlineDevices = roomDevices.filter(d => d.status === 'online').length;
-
-                    return (
-                      <div key={room.id} className="room-card">
-                        <div className="room-header">
-                          <h4>{room.name}</h4>
-                          {avgAqi !== null && <AQIBadge aqi={avgAqi} size="small" />}
-                        </div>
-
-                        <div className="room-stats">
-                          <span className="device-count">
-                            {onlineDevices}/{roomDevices.length} devices online
-                          </span>
-                        </div>
-
-                        <div className="room-devices">
-                          {roomDevices.length === 0 ? (
-                            <p className="no-devices">No devices in this room</p>
-                          ) : (
-                            <div className="devices-list">
-                              {roomDevices.map(device => (
-                                <div
-                                  key={device.id}
-                                  className={`device-indicator ${device.status}`}
-                                  onClick={() => handleDeviceClick(device.id)}
-                                  title={`${device.name} - ${device.status}`}
-                                >
-                                  <div className="device-icon">
-                                    {device.status === 'online' ? '🟢' : '🔴'}
-                                  </div>
-                                  <div className="device-name">{device.name}</div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      <div ref={mapContainer} className="map-canvas" />
 
       <div className="map-legend">
-        <h4>Legend</h4>
-        <div className="legend-items">
-          <div className="legend-item">
-            <span className="legend-icon">🟢</span>
-            <span>Online Device</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-icon">🔴</span>
-            <span>Offline Device</span>
-          </div>
-        </div>
+        <span className="legend-title">AQI</span>
+        <span className="legend-chip" style={{ background: '#22c55e' }}>0-50</span>
+        <span className="legend-chip" style={{ background: '#eab308' }}>51-100</span>
+        <span className="legend-chip" style={{ background: '#f97316' }}>101-150</span>
+        <span className="legend-chip" style={{ background: '#ef4444' }}>151-200</span>
+        <span className="legend-chip" style={{ background: '#a855f7' }}>201-300</span>
+        <span className="legend-chip" style={{ background: '#7f1d1d' }}>300+</span>
+        <span className="legend-note">● filled = AeroSpec area avg, ○ ring = OpenAQ station</span>
       </div>
     </div>
   );

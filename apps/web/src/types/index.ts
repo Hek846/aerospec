@@ -1,5 +1,5 @@
 // User Types
-export type UserRole = 'owner' | 'standard' | 'admin';
+export type UserRole = 'owner' | 'standard' | 'admin' | 'user';
 
 export interface User {
   id: string;
@@ -44,32 +44,55 @@ export type DeviceStatus = 'online' | 'offline';
 
 export interface Device {
   id: string;
-  homeId: string;
-  roomId: string;
+  homeId: string | null;
+  roomId: string | null;
   name: string;
-  deploymentId: string; // human-readable unique ID
-  tags: string[];
-  firmwareVersion: string;
+  deploymentId: string; // device serial (printed on unit)
+  tags?: string[];
+  firmwareVersion: string | null;
   status: DeviceStatus;
-  lastSeen: string; // ISO timestamp
-  wifiRssi: number; // dBm
-  batteryLevel: number; // percent
+  lastSeen: string | null; // ISO timestamp
+  wifiRssi?: number | null; // legacy field, absent on BLE-only hardware
+  batteryLevel: number | null; // percent
+  latestReading?: SensorReading | null;
 }
 
 // Sensor Reading Types
+// AeroSpec hardware measures PM + environment; co2/vocIndex/noiseDb are
+// reserved for future sensors and stay null on current devices.
 export interface SensorReading {
   deviceId: string;
   timestamp: string; // ISO timestamp
-  pm25: number; // µg/m³
-  pm10: number; // µg/m³
-  co2: number; // ppm
-  temperature: number; // degrees Celsius
-  humidity: number; // percent
-  pressure: number; // hPa
-  vocIndex: number; // dimensionless index
-  noiseDb: number; // dB
-  aqi: number; // 0-500 or similar
-  anomalyFlags: string[]; // e.g., ["PM_SPIKE", "CO2_HIGH"]
+  pm25: number | null; // µg/m³ (humidity-corrected when available)
+  pm10: number | null; // µg/m³
+  co2: number | null; // ppm
+  temperature: number | null; // degrees Celsius
+  humidity: number | null; // percent
+  pressure: number | null; // hPa
+  vocIndex: number | null; // dimensionless index
+  noiseDb: number | null; // dB
+  aqi: number | null; // US EPA PM2.5 AQI
+  anomalyFlags?: string[]; // e.g., ["PM_SPIKE"]
+}
+
+// Crowd map types
+export interface MapCell {
+  lat: number;
+  lon: number;
+  deviceCount: number;
+  avgPm25: number | null;
+  avgAqi: number | null;
+  lastTs: string | null;
+}
+
+export interface OpenAQStation {
+  id: number | string;
+  name: string;
+  lat: number;
+  lon: number;
+  pm25: number | null;
+  aqi: number | null;
+  lastUpdated: string | null;
 }
 
 // Alert Types

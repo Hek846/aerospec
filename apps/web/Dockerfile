@@ -12,6 +12,9 @@ COPY apps/api/package.json ./apps/api/package.json
 
 RUN pnpm install --frozen-lockfile --filter @aerospec/web... --filter @aerospec/types...
 
+ARG VITE_API_URL=http://localhost:4000
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN pnpm --filter @aerospec/types build
 RUN pnpm --filter @aerospec/web build
 

@@ -32,8 +32,8 @@ describe('AQI Utilities', () => {
     });
 
     it('returns correct band for unhealthy air quality', () => {
-      expect(getAQIBand(101)).toBe('unhealthy-sensitive');
-      expect(getAQIBand(150)).toBe('unhealthy-sensitive');
+      expect(getAQIBand(101)).toBe('unhealthy-sensitive-groups');
+      expect(getAQIBand(150)).toBe('unhealthy-sensitive-groups');
     });
 
     it('returns correct band for very unhealthy air quality', () => {

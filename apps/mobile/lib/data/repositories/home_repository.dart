@@ -45,4 +45,22 @@ class HomeRepository {
 
     return roomsJson.map((json) => Room.fromJson(json)).toList();
   }
+
+  /// Create a new home (`POST /homes`, PIPELINE.md section 4).
+  Future<Home> createHome({required String name}) async {
+    final response = await _apiClient.post(
+      '/homes',
+      data: {'name': name},
+    );
+    final data = response.data as Map<String, dynamic>;
+    // Accept both { home: {...} } and flat home object response shapes.
+    final homeJson = data['home'] is Map<String, dynamic>
+        ? data['home'] as Map<String, dynamic>
+        : data;
+
+    // Stale cached home lists would hide the new home.
+    await _cacheManager.clearHomes();
+
+    return Home.fromJson(homeJson);
+  }
 }

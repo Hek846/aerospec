@@ -1,4 +1,4 @@
-// API client with authentication support
+// AeroSpec API client with authentication support
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -28,7 +28,7 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    throw new Error(error.error?.message || error.message || `HTTP ${response.status}`);
   }
 
   return response.json();
@@ -42,6 +42,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  register: (name: string, email: string, password: string) =>
+    apiRequest<{ token: string; user: any }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password }),
+    }),
 
   // Homes
   getHomes: () => apiRequest<{ homes: any[] }>('/homes'),
@@ -52,7 +57,8 @@ export const api = {
   getRoom: (roomId: string) => apiRequest<any>(`/rooms/${roomId}`),
 
   // Devices
-  getDeviceReadings: (deviceId: string, range: string = '24h', page: number = 1, limit: number = 100) =>
+  getDevices: () => apiRequest<{ devices: any[] }>('/devices'),
+  getDeviceReadings: (deviceId: string, range: string = '24h', page: number = 1, limit: number = 1000) =>
     apiRequest<{
       readings: any[];
       pagination: {
@@ -64,6 +70,12 @@ export const api = {
         hasPrevPage: boolean;
       }
     }>(`/devices/${deviceId}/readings?range=${range}&page=${page}&limit=${limit}`),
+
+  // Crowd map
+  getMapCells: (bbox: string, hours: number = 24) =>
+    apiRequest<{ cells: any[] }>(`/map/cells?bbox=${bbox}&hours=${hours}`),
+  getOpenAQLatest: (bbox: string) =>
+    apiRequest<{ stations: any[] }>(`/external/openaq/latest?bbox=${bbox}`),
 
   // Alerts
   getAlerts: () => apiRequest<{ rules: any[]; events: any[] }>('/alerts'),

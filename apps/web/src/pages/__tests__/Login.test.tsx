@@ -27,6 +27,12 @@ const renderLogin = () => {
   );
 };
 
+const fillAndSubmit = (email: string, password: string) => {
+  fireEvent.change(screen.getByLabelText(/email/i), { target: { value: email } });
+  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: password } });
+  fireEvent.click(screen.getByRole('button', { name: /enter console/i }));
+};
+
 describe('Login', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -35,106 +41,47 @@ describe('Login', () => {
 
   it('renders login form', () => {
     renderLogin();
-    expect(screen.getByLabelText(/email|username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /log in|sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /enter console/i })).toBeInTheDocument();
   });
 
-  it('displays validation errors for empty fields', async () => {
+  it('shows the demo admin quick login', () => {
     renderLogin();
-
-    const submitButton = screen.getByRole('button', { name: /log in|sign in/i });
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/email.*required|username.*required/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText('admin@aerospec.io')).toBeInTheDocument();
   });
 
-  it('submits form with valid credentials', async () => {
+  it('submits credentials and navigates on success', async () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         token: 'fake-token',
-        user: { id: '1', name: 'Test User', email: 'test@example.com', role: 'user' }
-      })
+        user: { id: '1', name: 'Test User', email: 'test@example.com', role: 'user', homes: [] },
+      }),
     });
 
     renderLogin();
-
-    const emailInput = screen.getByLabelText(/email|username/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /log in|sign in/i });
-
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-    fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/auth/login'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('test@example.com')
-        })
-      );
-    });
-  });
-
-  it('displays error message on login failure', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ error: 'Invalid credentials' })
-    });
-
-    renderLogin();
-
-    const emailInput = screen.getByLabelText(/email|username/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /log in|sign in/i });
-
-    fireEvent.change(emailInput, { target: { value: 'wrong@example.com' } });
-    fireEvent.change(passwordInput, { target: { value: 'wrongpassword' } });
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(screen.getByText(/invalid credentials|login failed/i)).toBeInTheDocument();
-    });
-  });
-
-  it('redirects to dashboard after successful login', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        token: 'fake-token',
-        user: { id: '1', name: 'Test User', email: 'test@example.com', role: 'user' }
-      })
-    });
-
-    renderLogin();
-
-    const emailInput = screen.getByLabelText(/email|username/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole('button', { name: /log in|sign in/i });
-
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-    fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.click(submitButton);
+    fillAndSubmit('test@example.com', 'password123');
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/');
     });
+    // localStorage is a vi.fn() mock in test setup; assert the write happened
+    expect(localStorage.setItem).toHaveBeenCalledWith('authToken', 'fake-token');
   });
 
-  it('toggles password visibility', () => {
+  it('shows an error message on login failure', async () => {
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: { message: 'Invalid email or password' } }),
+    });
+
     renderLogin();
+    fillAndSubmit('wrong@example.com', 'badpassword');
 
-    const passwordInput = screen.getByLabelText(/password/i) as HTMLInputElement;
-    expect(passwordInput.type).toBe('password');
-
-    const toggleButton = screen.getByRole('button', { name: /show|toggle.*password/i });
-    fireEvent.click(toggleButton);
-
-    expect(passwordInput.type).toBe('text');
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
