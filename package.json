@@ -1,0 +1,27 @@
+{
+  "name": "aerospec",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "dev": "pnpm --filter @aerospec/web dev",
+    "dev:api": "pnpm --filter @aerospec/api dev",
+    "build": "pnpm --filter @aerospec/types build && pnpm --filter @aerospec/api build && pnpm --filter @aerospec/web build",
+    "build:types": "pnpm --filter @aerospec/types build",
+    "build:api": "pnpm --filter @aerospec/api build",
+    "build:web": "pnpm --filter @aerospec/web build",
+    "start:api": "pnpm --filter @aerospec/api start",
+    "db:migrate": "pnpm --filter @aerospec/api db:migrate",
+    "db:seed": "pnpm --filter @aerospec/api db:seed",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,53 @@
+.aqi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.aqi-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: var(--font-body);
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.aqi-badge--small .aqi-value {
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  min-width: 40px;
+  height: 24px;
+}
+
+.aqi-badge--medium .aqi-value {
+  font-size: var(--text-base);
+  padding: var(--space-2) var(--space-3);
+  min-width: 56px;
+  height: 32px;
+}
+
+.aqi-badge--large .aqi-value {
+  font-size: var(--text-xl);
+  padding: var(--space-3) var(--space-4);
+  min-width: 80px;
+  height: 48px;
+}
+
+.aqi-band {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.aqi-badge--small .aqi-band {
+  font-size: var(--text-xs);
+}
+
+.aqi-badge--large .aqi-band {
+  font-size: var(--text-base);
+}

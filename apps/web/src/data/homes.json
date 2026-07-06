@@ -1,0 +1,23 @@
+[
+  {
+    "id": "home-lynnwood-1",
+    "ownerId": "user-owner-1",
+    "name": "Lynnwood Home",
+    "location": {
+      "city": "Lynnwood",
+      "region": "WA",
+      "lat": 47.8209,
+      "lon": -122.3151
+    },
+    "timezone": "America/Los_Angeles",
+    "configProfileId": "profile-standard",
+    "roomIds": [
+      "room-br1",
+      "room-br2",
+      "room-br3",
+      "room-br4",
+      "room-lr",
+      "room-fr"
+    ]
+  }
+]

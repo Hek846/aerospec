@@ -1,0 +1,50 @@
+[
+  {
+    "id": "room-br1",
+    "homeId": "home-lynnwood-1",
+    "name": "Bedroom 1",
+    "type": "Bedroom",
+    "floor": "2",
+    "deviceId": "device-br1"
+  },
+  {
+    "id": "room-br2",
+    "homeId": "home-lynnwood-1",
+    "name": "Bedroom 2",
+    "type": "Bedroom",
+    "floor": "2",
+    "deviceId": "device-br2"
+  },
+  {
+    "id": "room-br3",
+    "homeId": "home-lynnwood-1",
+    "name": "Bedroom 3",
+    "type": "Bedroom",
+    "floor": "2",
+    "deviceId": "device-br3"
+  },
+  {
+    "id": "room-br4",
+    "homeId": "home-lynnwood-1",
+    "name": "Bedroom 4",
+    "type": "Bedroom",
+    "floor": "2",
+    "deviceId": "device-br4"
+  },
+  {
+    "id": "room-lr",
+    "homeId": "home-lynnwood-1",
+    "name": "Living Room",
+    "type": "LivingRoom",
+    "floor": "1",
+    "deviceId": "device-lr"
+  },
+  {
+    "id": "room-fr",
+    "homeId": "home-lynnwood-1",
+    "name": "Family Room",
+    "type": "FamilyRoom",
+    "floor": "1",
+    "deviceId": "device-fr"
+  }
+]

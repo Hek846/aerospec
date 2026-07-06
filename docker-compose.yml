@@ -1,0 +1,54 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: aerospec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aerospec}
+      POSTGRES_DB: aerospec
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aerospec -d aerospec"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://aerospec:${POSTGRES_PASSWORD:-aerospec}@db:5432/aerospec
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      JWT_SECRET: ${JWT_SECRET:-development-only-secret}
+      OPENAQ_API_KEY: ${OPENAQ_API_KEY:-}
+      SEED_ON_BOOT: ${SEED_ON_BOOT:-true}
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  dbdata:

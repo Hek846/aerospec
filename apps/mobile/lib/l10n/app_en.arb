@@ -1,0 +1,17 @@
+{
+  "@@locale": "en",
+  "appTitle": "Sensair",
+  "homeTab": "Home",
+  "statisticsTab": "Statistics",
+  "mapTab": "Map",
+  "profileTab": "Profile",
+  "goodMorning": "Good morning",
+  "goodAfternoon": "Good afternoon",
+  "goodEvening": "Good evening",
+  "aqiGood": "Good",
+  "aqiModerate": "Moderate",
+  "aqiUnhealthySensitive": "Unhealthy for Sensitive Groups",
+  "aqiUnhealthy": "Unhealthy",
+  "aqiVeryUnhealthy": "Very Unhealthy",
+  "aqiHazardous": "Hazardous"
+}

@@ -1,0 +1,23 @@
+.placeholder-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.placeholder-page h1 {
+  margin: 0;
+}
+
+.placeholder-icon {
+  font-size: 5rem;
+  margin: var(--space-6) 0;
+}
+
+.placeholder-note {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}

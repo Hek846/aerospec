@@ -1,0 +1,41 @@
+[
+  {
+    "id": "rule-pm25-home",
+    "homeId": "home-lynnwood-1",
+    "metric": "pm25",
+    "thresholdType": "above",
+    "thresholdValue": 35,
+    "enabled": true,
+    "notifyEmail": "sarah.johnson@example.com",
+    "quietHours": {
+      "start": "22:00",
+      "end": "07:00"
+    }
+  },
+  {
+    "id": "rule-co2-home",
+    "homeId": "home-lynnwood-1",
+    "metric": "co2",
+    "thresholdType": "above",
+    "thresholdValue": 1000,
+    "enabled": true,
+    "notifyEmail": "sarah.johnson@example.com",
+    "quietHours": {
+      "start": "22:00",
+      "end": "07:00"
+    }
+  },
+  {
+    "id": "rule-voc-home",
+    "homeId": "home-lynnwood-1",
+    "metric": "vocIndex",
+    "thresholdType": "above",
+    "thresholdValue": 250,
+    "enabled": true,
+    "notifyEmail": "sarah.johnson@example.com",
+    "quietHours": {
+      "start": "22:00",
+      "end": "07:00"
+    }
+  }
+]

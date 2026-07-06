@@ -1,0 +1,6 @@
+package com.sensair.mobile
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity() {
+}
