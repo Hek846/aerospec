@@ -5,11 +5,19 @@ Boron-based particulate matter sensor, a phone app that syncs the sensor's
 data over BLE and uploads it to the cloud, and a web dashboard with a
 crowd-sourced regional air quality map.
 
+```mermaid
+flowchart LR
+    S["Boron sensor<br/>PMSA003 + BME280"] -- "BLE<br/>Nordic UART" --> M["Flutter app<br/>(gateway)"]
+    M -- "HTTPS batch upload" --> A["Express API<br/>JWT auth"]
+    A <--> D[("Postgres<br/>TimescaleDB")]
+    W["React dashboard<br/>+ regional map"] -- REST --> A
+    A -- proxy --> O["OpenAQ v3<br/>public stations"]
 ```
-Boron sensor --BLE--> Flutter app --HTTPS--> API --> TimescaleDB
-                                              |
-                          Web dashboard + regional map (OpenAQ overlay)
-```
+
+See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full set of
+diagrams (data flow, BLE sync state machine, DB schema, onboarding workflow,
+map privacy model, deployment) and **[docs/PIPELINE.md](docs/PIPELINE.md)**
+for the binding API/data contract.
 
 ## Layout
 
@@ -20,6 +28,7 @@ Boron sensor --BLE--> Flutter app --HTTPS--> API --> TimescaleDB
 | `apps/mobile` | Flutter app (iOS-first): BLE device sync + dashboards |
 | `packages/types` | Shared TypeScript types |
 | `packages/data` | Demo data generators (seeding) |
+| `docs/ARCHITECTURE.md` | Architecture & workflow diagrams (kept current with code) |
 | `docs/PIPELINE.md` | End-to-end data pipeline contract — read this first |
 
 The firmware lives in the separate `AeroSpec-Firmware` repository; its README

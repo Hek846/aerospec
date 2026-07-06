@@ -1,0 +1,28 @@
+---
+description: Keep architecture docs and Mermaid diagrams in sync with code changes
+alwaysApply: true
+---
+
+# Documentation maintenance
+
+`docs/ARCHITECTURE.md` (Mermaid diagrams) and `docs/PIPELINE.md` (API/data
+contract) are living documents. When making changes, update them in the same
+commit:
+
+- **API routes added/changed/removed** → update the endpoint table in
+  `PIPELINE.md` and, if the flow changes, the sequence diagram in
+  `ARCHITECTURE.md` section 2.
+- **Database schema changes** (new migration) → update the ER diagram in
+  `ARCHITECTURE.md` section 4.
+- **BLE protocol or mobile sync changes** → update the state machine in
+  `ARCHITECTURE.md` section 3 and `PIPELINE.md` section 1.
+- **New services, containers, or deployment changes** → update the
+  deployment diagram in `ARCHITECTURE.md` section 7 and the system overview
+  in section 1 (plus the README overview diagram if the top-level shape
+  changed).
+- **New apps/packages in the monorepo** → update the layout tables in
+  README and `ARCHITECTURE.md` section 8.
+
+Do not let diagrams drift: a wrong diagram is worse than none. If you notice
+an existing diagram no longer matches the code, fix it even if your change
+did not cause the drift.
