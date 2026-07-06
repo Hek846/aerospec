@@ -33,39 +33,81 @@ interface OpenAQLocation {
   coordinates?: { latitude?: number; longitude?: number };
   datetimeLast?: { utc?: string } | string | null;
   sensors?: Array<{
+    id?: number;
     parameter?: { name?: string };
-    latest?: { value?: number; datetime?: { utc?: string } } | null;
   }>;
 }
 
-function normalizeLocation(loc: OpenAQLocation): Station | null {
+interface OpenAQLatestRow {
+  value?: number;
+  sensorsId?: number;
+  datetime?: { utc?: string };
+}
+
+// Skip stations that have not reported in a week; they render as dead markers.
+const STALE_MS = 7 * 24 * 60 * 60 * 1000;
+// Cap per-station /latest fan-out per proxy request (results are cached 10 min).
+const MAX_STATIONS = 50;
+
+function lastUpdatedOf(loc: OpenAQLocation): string | null {
+  if (typeof loc.datetimeLast === 'string') {
+    return loc.datetimeLast;
+  }
+  if (loc.datetimeLast && typeof loc.datetimeLast.utc === 'string') {
+    return loc.datetimeLast.utc;
+  }
+  return null;
+}
+
+/**
+ * OpenAQ v3 no longer embeds latest values in /locations, so fetch each
+ * station's /latest and match rows against the station's pm25 sensor id.
+ */
+async function fetchStation(
+  loc: OpenAQLocation,
+  headers: Record<string, string>
+): Promise<Station | null> {
   const lat = loc.coordinates?.latitude;
   const lon = loc.coordinates?.longitude;
-  if (typeof lat !== 'number' || typeof lon !== 'number') {
+  if (typeof lat !== 'number' || typeof lon !== 'number' || loc.id === undefined) {
     return null;
   }
 
-  const pm25Sensor = loc.sensors?.find((s) => s.parameter?.name === 'pm25');
-  const pm25 =
-    typeof pm25Sensor?.latest?.value === 'number' ? pm25Sensor.latest.value : null;
+  const pm25SensorIds = new Set(
+    (loc.sensors ?? [])
+      .filter((s) => s.parameter?.name === 'pm25' && typeof s.id === 'number')
+      .map((s) => s.id as number)
+  );
 
-  let lastUpdated: string | null = null;
-  if (typeof loc.datetimeLast === 'string') {
-    lastUpdated = loc.datetimeLast;
-  } else if (loc.datetimeLast && typeof loc.datetimeLast.utc === 'string') {
-    lastUpdated = loc.datetimeLast.utc;
-  } else if (pm25Sensor?.latest?.datetime?.utc) {
-    lastUpdated = pm25Sensor.latest.datetime.utc;
+  let pm25: number | null = null;
+  let measuredAt: string | null = null;
+  try {
+    const upstream = await fetch(`${OPENAQ_BASE}/${loc.id}/latest`, { headers });
+    if (upstream.ok) {
+      const body = (await upstream.json()) as { results?: OpenAQLatestRow[] };
+      const row = (body.results ?? []).find(
+        (r) =>
+          typeof r.value === 'number' &&
+          typeof r.sensorsId === 'number' &&
+          pm25SensorIds.has(r.sensorsId)
+      );
+      if (row) {
+        pm25 = row.value as number;
+        measuredAt = row.datetime?.utc ?? null;
+      }
+    }
+  } catch {
+    // Station stays on the map without a reading rather than failing the request.
   }
 
   return {
-    id: loc.id ?? '',
+    id: loc.id,
     name: loc.name ?? 'Unknown station',
     lat,
     lon,
     pm25,
     aqi: pm25ToAqi(pm25),
-    lastUpdated
+    lastUpdated: measuredAt ?? lastUpdatedOf(loc)
   };
 }
 
@@ -83,7 +125,8 @@ router.get(
       return;
     }
 
-    const url = `${OPENAQ_BASE}?bbox=${encodeURIComponent(bboxKey)}&limit=100`;
+    // parameters_id=2 keeps only stations that actually have a pm25 sensor
+    const url = `${OPENAQ_BASE}?bbox=${encodeURIComponent(bboxKey)}&parameters_id=2&limit=100`;
     const headers: Record<string, string> = {};
     if (process.env.OPENAQ_API_KEY) {
       headers['X-API-Key'] = process.env.OPENAQ_API_KEY;
@@ -97,9 +140,15 @@ router.get(
         return;
       }
       const body = (await upstream.json()) as { results?: OpenAQLocation[] };
-      stations = (body.results ?? [])
-        .map(normalizeLocation)
-        .filter((s): s is Station => s !== null);
+      const staleCutoff = Date.now() - STALE_MS;
+      const active = (body.results ?? [])
+        .filter((loc) => {
+          const last = lastUpdatedOf(loc);
+          return last !== null && new Date(last).getTime() >= staleCutoff;
+        })
+        .slice(0, MAX_STATIONS);
+      const resolved = await Promise.all(active.map((loc) => fetchStation(loc, headers)));
+      stations = resolved.filter((s): s is Station => s !== null);
     } catch (err) {
       res.status(502).json({
         error: `OpenAQ upstream request failed: ${err instanceof Error ? err.message : 'unknown error'}`

@@ -149,13 +149,16 @@ coordinates.
 ### OpenAQ proxy
 
 `GET /external/openaq/latest?bbox=minLon,minLat,maxLon,maxLat` proxies OpenAQ
-v3 (`https://api.openaq.org/v3/locations?bbox=...&limit=100`), attaches
-`X-API-Key` from env `OPENAQ_API_KEY` (works unauthenticated with low rate
-limits), caches responses in memory for 10 minutes keyed by bbox, and
-normalizes to `[{ id, name, lat, lon, pm25, aqi, lastUpdated }]`. PM2.5 is
-taken from each location's embedded `sensors[].latest` value when present,
-otherwise `null` (no per-location follow-up requests). Upstream failures
-return `502 { error }`.
+v3. It lists stations via
+`https://api.openaq.org/v3/locations?bbox=...&parameters_id=2&limit=100`
+(pm25-capable stations only), drops stations whose `datetimeLast` is older
+than 7 days, then fetches `/v3/locations/:id/latest` for up to 50 stations in
+parallel to obtain current pm25 values (v3 stopped embedding `sensors[].latest`
+in the list response). Requires env `OPENAQ_API_KEY` (v3 returns 401 without
+a key). Responses are cached in memory for 10 minutes keyed by bbox and
+normalized to `[{ id, name, lat, lon, pm25, aqi, lastUpdated }]`. Upstream
+failures return `502 { error }`; per-station fetch failures degrade to
+`pm25: null` for that station only.
 
 ## 5. Environment
 
