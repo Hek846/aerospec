@@ -3,18 +3,36 @@
 This document is the source of truth for how data flows through the system and
 what every component must implement. Phase 1 scope: real end-to-end pipeline.
 
-```
-Boron sensor --BLE (NUS)--> Flutter app (foreground sync) --HTTPS--> API (Express)
-                                                                       |
-                                                          Postgres + TimescaleDB
-                                                                       |
-                                              Web dashboard / Mobile app / Map
-                                                       (OpenAQ overlay for outdoor reference)
+Diagram index: see [`docs/README.md`](./README.md). System map:
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+## Pipeline overview
+
+```mermaid
+flowchart LR
+    S["Boron sensor"] -- "BLE Nordic UART" --> M["Flutter app<br/>(foreground sync)"]
+    M -- "HTTPS JWT" --> A["Express API"]
+    A <--> D[("Postgres<br/>TimescaleDB")]
+    W["Web dashboard"] -- REST --> A
+    M2["Mobile UI"] -- REST --> A
+    A -- proxy --> O["OpenAQ v3"]
+    W --> MAP["MapLibre map"]
+    MAP -. "cells + stations" .- A
 ```
 
 ## 1. Device -> Phone (BLE)
 
-Implemented by firmware already (see `AeroSpec-Firmware/README.md`). Summary:
+Implemented by firmware (see `AeroSpec-Firmware/README.md`). Summary:
+
+```mermaid
+flowchart TB
+    subgraph NUS["Nordic UART Service"]
+        RX["RX 6E400002<br/>phone → device (write)"]
+        TX["TX 6E400003<br/>device → phone (notify)"]
+    end
+    APP["Flutter app"] -->|"ASCII commands + newline"| RX
+    TX -->|"20-byte chunks<br/>reassemble to line"| APP
+```
 
 - Advertised name: `AeroSpec`. Nordic UART Service:
   - Service `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`
@@ -27,6 +45,22 @@ Implemented by firmware already (see `AeroSpec-Firmware/README.md`). Summary:
 - Live sample push: `$D,<csv>` every interval while connected.
 - History transfer: `GET HISTORY` -> `$H,BEGIN,<bytes>` -> `$H,<csv line>`*
   -> `$H,END,<count>`.
+
+```mermaid
+sequenceDiagram
+    participant App as Flutter app
+    participant Dev as Boron sensor
+    App->>Dev: GET HISTORY <high-water ISO>
+    Dev-->>App: $H,BEGIN,<bytes>
+    loop CSV lines
+        Dev-->>App: $H,<19-col CSV>
+    end
+    Dev-->>App: $H,END,<count>
+    Note over App: parse, batch POST /ingest/readings
+    loop while connected
+        Dev-->>App: $D,<csv> (live, ~10s)
+    end
+```
 
 CSV record (19 columns, `NA` = missing, timestamps UTC):
 
@@ -42,6 +76,13 @@ PM2.5 (preferred value for AQI).
 ## 2. Phone -> Backend (ingestion)
 
 The logged-in app uploads readings on behalf of a claimed device.
+
+```mermaid
+flowchart LR
+    M["Mobile app"] -->|"POST /ingest/readings<br/>Bearer JWT, ≤500 rows"| API["API"]
+    API -->|"INSERT ON CONFLICT DO NOTHING"| DB[("sensor_readings")]
+    API -->|"GREATEST last_seen,<br/>battery_pct"| DEV["devices row"]
+```
 
 `POST /ingest/readings` (Bearer user JWT)
 
@@ -93,6 +134,28 @@ The logged-in app uploads readings on behalf of a claimed device.
 All JSON, Bearer JWT except register/login/health. Existing route shapes are
 preserved so the web frontend keeps working; new routes marked (new).
 
+```mermaid
+flowchart TB
+    subgraph Public
+        H["GET /health"]
+        R["POST /auth/register"]
+        L["POST /auth/login"]
+    end
+    subgraph User["Bearer JWT"]
+        HOM["/homes, /rooms"]
+        DEV["/devices, /ingest"]
+        MAP["/map/cells"]
+        EXT["/external/openaq"]
+        ALT["/alerts, /reports, /compare"]
+    end
+    subgraph Admin["role = admin"]
+        ADM["/admin/*"]
+    end
+    Client --> Public
+    Client --> User
+    Client --> Admin
+```
+
 | Route | Notes |
 |---|---|
 | `POST /auth/register` (new) | name, email, password -> token + user |
@@ -140,6 +203,13 @@ preserved so the web frontend keeps working; new routes marked (new).
 
 ### Privacy fuzzing (`/map/cells`)
 
+```mermaid
+flowchart LR
+    R[("Per-device readings<br/>+ home lat/lon")] --> G["Round to ~0.01° grid"]
+    G --> C["Cell: center lat/lon,<br/>deviceCount, avgPm25, avgAqi"]
+    C --> API["GET /map/cells"]
+```
+
 Device locations are NEVER returned individually. Readings are aggregated
 into ~1.1 km grid cells (lat/lon rounded to 0.01°); each cell returns center
 coordinates, device count, avg PM2.5 / AQI over the window. Cells with data
@@ -147,6 +217,23 @@ from fewer than 1 device are still shown but never expose the serial or exact
 coordinates.
 
 ### OpenAQ proxy
+
+```mermaid
+sequenceDiagram
+    participant W as Web / API client
+    participant A as API proxy
+    participant O as OpenAQ v3
+    W->>A: GET /external/openaq/latest?bbox=
+    alt cache hit (< 10 min)
+        A-->>W: stations (cached)
+    else cache miss
+        A->>O: GET /locations?bbox=&parameters_id=2
+        loop up to 50 active stations
+            A->>O: GET /locations/:id/latest
+        end
+        A-->>W: stations { pm25, aqi, lastUpdated }
+    end
+```
 
 `GET /external/openaq/latest?bbox=minLon,minLat,maxLon,maxLat` proxies OpenAQ
 v3. It lists stations via
@@ -175,6 +262,19 @@ boot), web (nginx). `pnpm db:seed` creates the demo admin
 (`admin@aerospec.io` / `aerospec-admin`) and a demo home with simulated data.
 
 ## 6. Mobile sync flow (foreground)
+
+```mermaid
+flowchart TD
+    A["Login → store JWT"] --> B["Scan BLE AeroSpec"]
+    B --> C["GET INFO + confirm serial"]
+    C --> D["POST /devices/claim"]
+    D --> E["GET HISTORY since high-water"]
+    E --> F["Batch POST /ingest/readings"]
+    F --> G["Update high-water per batch"]
+    G --> H["Subscribe to $D live"]
+    H --> I["Display + flush buffer ~2 min"]
+    I --> J["Disconnect / idle"]
+```
 
 1. User logs in (JWT stored in secure storage).
 2. Device claim: scan BLE for `AeroSpec`, connect, `GET INFO` to read firmware

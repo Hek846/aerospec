@@ -8,7 +8,9 @@
 
 Companion documents:
 
+- [`README.md`](./README.md) — documentation index (living vs historical)
 - [`PIPELINE.md`](./PIPELINE.md) — binding API/data contract between firmware, mobile, API, and web
+- [`../AGENTS.md`](../AGENTS.md) — conventions for all agents (Mermaid-first docs)
 - Firmware BLE protocol — `AeroSpec-Firmware` repository README
 
 ## 1. System overview

@@ -17,7 +17,8 @@ flowchart LR
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full set of
 diagrams (data flow, BLE sync state machine, DB schema, onboarding workflow,
 map privacy model, deployment) and **[docs/PIPELINE.md](docs/PIPELINE.md)**
-for the binding API/data contract.
+for the binding API/data contract. Index: **[docs/README.md](docs/README.md)**.
+Agent conventions: **[AGENTS.md](AGENTS.md)**.
 
 ## Layout
 
@@ -30,6 +31,8 @@ for the binding API/data contract.
 | `packages/data` | Demo data generators (seeding) |
 | `docs/ARCHITECTURE.md` | Architecture & workflow diagrams (kept current with code) |
 | `docs/PIPELINE.md` | End-to-end data pipeline contract — read this first |
+| `docs/README.md` | Documentation index (living vs historical) |
+| `AGENTS.md` | Agent conventions — Mermaid-first, keep docs in sync |
 
 The firmware lives in the separate `AeroSpec-Firmware` repository; its README
 documents the BLE protocol this repo implements against.

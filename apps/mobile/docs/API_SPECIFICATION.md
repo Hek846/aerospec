@@ -1,18 +1,53 @@
-# Sensair Mobile App - API Specification
+# AeroSpec Mobile — API Specification
 
-Version: 0.1
-Based on: Sensair web app backend API
+Version: 1.0 (Phase 1)  
+Backend: `apps/api` · **Authoritative contract**:
+[`../../docs/PIPELINE.md`](../../docs/PIPELINE.md)
 
-This document specifies the REST API endpoints that the mobile app will consume. The API is built with Express.js and uses JWT Bearer token authentication.
+Express + TypeScript, Postgres/TimescaleDB, JWT Bearer authentication.
 
 ---
 
-## Base Configuration
+## Client ↔ API overview
 
-**Base URL (Development)**: `http://localhost:4000`
-**Base URL (Production)**: TBD (environment variable: `VITE_API_URL`)
+```mermaid
+flowchart TB
+    APP["Flutter app"] -->|"Dio + Bearer JWT"| API["Express API :4000"]
+    API --> DB[("Postgres")]
+    subgraph Reads
+        HOM["GET /homes, /rooms"]
+        DEV["GET /devices, /readings"]
+        ALT["GET /alerts, /reports"]
+    end
+    subgraph Writes
+        CLM["POST /devices/claim"]
+        ING["POST /ingest/readings"]
+        ACK["POST /alerts/:id/ack"]
+    end
+    APP --> Reads
+    APP --> Writes
+    API --> Reads & Writes
+```
 
-**Authentication**: JWT Bearer token
+## Authentication flow
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant API
+    App->>API: POST /auth/login { email, password }
+    API-->>App: { token, user }
+    Note over App: secure storage
+    App->>API: GET /homes (Authorization Bearer)
+    API-->>App: { homes: [...] }
+```
+
+---
+
+## Base configuration
+
+**Base URL (development)**: `http://localhost:4000`  
+**Base URL (LAN demo)**: `http://192.168.68.101:4000`  
 **Content-Type**: `application/json`
 
 ---
@@ -155,6 +190,26 @@ Get details for a specific room.
 ---
 
 ## Devices
+
+```mermaid
+flowchart LR
+    BLE["BLE sync"] --> ING["POST /ingest/readings"]
+    PAIR["POST /devices/claim"] --> ING
+    ING --> DB[("sensor_readings")]
+    UI["Dashboards"] --> READ["GET /devices/:id/readings"]
+    READ --> DB
+```
+
+### POST /devices/claim (Phase 1)
+
+Claim or create a device by serial after BLE pairing.
+
+**Request**: `{ "serial", "name", "homeId", "roomId?" }`  
+**Response**: `{ "device": { "id", ... } }` — store `device.id` for ingest.
+
+### POST /ingest/readings (Phase 1)
+
+Batch upload from mobile gateway. See [`PIPELINE.md`](../../docs/PIPELINE.md) §2.
 
 ### GET /devices/:deviceId/readings
 
@@ -410,11 +465,40 @@ Get AQI distribution by hour of day.
 
 ---
 
-## Map API (Mobile-Specific)
+## Map API
 
-**Note**: Map endpoints need to be designed based on the crowdsourced data approach.
+Implemented on web; mobile may consume the same endpoints.
 
-### GET /map/tiles
+```mermaid
+flowchart LR
+    MAP["Map view"] --> C["GET /map/cells?bbox=&hours="]
+    MAP --> O["GET /external/openaq/latest?bbox="]
+    C --> AGG["Privacy grid aggregation"]
+    O --> PROXY["OpenAQ v3 proxy"]
+```
+
+### GET /map/cells
+
+Crowd-sourced AeroSpec readings aggregated into ~0.01° grid cells (no serials).
+
+**Query**: `bbox=minLon,minLat,maxLon,maxLat`, `hours=24`  
+**Response**: `{ cells: [{ lat, lon, deviceCount, avgPm25, avgAqi, lastTs }], total, hours }`
+
+### GET /external/openaq/latest
+
+Public reference stations (requires server `OPENAQ_API_KEY`).
+
+**Query**: same `bbox` format  
+**Response**: `{ stations: [{ id, name, lat, lon, pm25, aqi, lastUpdated }], total, cached }`
+
+---
+
+## Map API (legacy proposal — superseded)
+
+The `/map/tiles` proposal below was never implemented. Use `/map/cells` and
+`/external/openaq/latest` instead.
+
+### GET /map/tiles (not implemented)
 
 Get AQ data for map visualization.
 

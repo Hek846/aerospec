@@ -1,8 +1,24 @@
-# Sensair Frontend Design System
+# AeroSpec Web — Design System
 
-This document outlines the visual design system, typography, color palette, and interaction patterns used in the Sensair frontend application.
+Visual design tokens for the React dashboard. For architecture and data flow,
+see [`README.md`](./README.md) and [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
 
-## Design Philosophy
+```mermaid
+flowchart TB
+    subgraph Theme["CSS variables (theme.css)"]
+        C["colors / AQI bands"]
+        T["typography scale"]
+        S["spacing / radius"]
+    end
+    subgraph UI["components + pages"]
+        NAV["Navigation / Layout"]
+        CARD["MetricCard, DeviceCard, AQIBadge"]
+        PAGE["Dashboard, MapView, …"]
+    end
+    Theme --> UI
+```
+
+## Design philosophy
 
 ### Purpose & Tone
 

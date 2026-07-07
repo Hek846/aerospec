@@ -1,0 +1,21 @@
+---
+description: Prefer Mermaid diagrams in Markdown docs (GitHub-native rendering)
+alwaysApply: true
+---
+
+# Mermaid-first documentation
+
+When writing or editing Markdown in this repo (`**/*.md`, especially under
+`docs/` and `apps/*/README.md`):
+
+- **Prefer Mermaid** for workflows, architecture, state machines, sequences,
+  ER schemas, and decision trees. Do not use ASCII box diagrams.
+- **One diagram per concern** — split large flows into linked sections rather
+  than one unreadable mega-chart.
+- **Update diagrams with code** — same commit as the change they describe.
+- **Link living docs**: `docs/ARCHITECTURE.md`, `docs/PIPELINE.md`, `AGENTS.md`.
+
+Example: wrap flows in a ` ```mermaid ` fence (sequenceDiagram, flowchart, etc.).
+
+If a doc still has ASCII art (`-->` lines in code fences), convert it to
+Mermaid when you touch that file.

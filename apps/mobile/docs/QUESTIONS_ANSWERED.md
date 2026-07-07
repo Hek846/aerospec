@@ -1,9 +1,23 @@
 # Sensair Mobile App - Clarifications and Decisions
 
-Version: 0.1
+> **Status**: Historical (2025-01-22). Phase 1 implementation may differ.
+> **Living docs**: [`../../docs/PIPELINE.md`](../../docs/PIPELINE.md),
+> [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md),
+> [`BLE_PROTOCOL.md`](./BLE_PROTOCOL.md) (Nordic UART, not WiFi GATT).
+
+Version: 0.1  
 Date: 2025-01-22
 
-This document captures all clarification questions and the answers/decisions made for the Sensair mobile app project.
+```mermaid
+flowchart TD
+    Q["Open question"] --> D["Decision recorded here"]
+    D --> L{"Still accurate?"}
+    L -- yes --> IMP["Implement per decision"]
+    L -- no --> PIPE["Follow docs/PIPELINE.md instead"]
+```
+
+This document captures clarification questions and the answers/decisions made
+for the Sensair mobile app project.
 
 ---
 
