@@ -15,18 +15,26 @@ interface ChartDataPoint {
   [key: string]: string | number | null;
 }
 
-const METRIC_CONFIG: Record<Metric, { label: string; unit: string; color: string }> = {
-  aqi: { label: 'AQI', unit: '', color: '#6366f1' },
-  pm25: { label: 'PM2.5', unit: 'µg/m³', color: '#ec4899' },
-  pm10: { label: 'PM10', unit: 'µg/m³', color: '#f97316' },
-  temperature: { label: 'Temperature', unit: '°C', color: '#ef4444' },
-  humidity: { label: 'Humidity', unit: '%', color: '#3b82f6' },
-  pressure: { label: 'Pressure', unit: 'hPa', color: '#14b8a6' },
+const METRIC_CONFIG: Record<Metric, { label: string; unit: string }> = {
+  aqi: { label: 'AQI', unit: '' },
+  pm25: { label: 'PM2.5', unit: 'µg/m³' },
+  pm10: { label: 'PM10', unit: 'µg/m³' },
+  temperature: { label: 'Temperature', unit: '°C' },
+  humidity: { label: 'Humidity', unit: '%' },
+  pressure: { label: 'Pressure', unit: 'hPa' },
 };
 
-const ROOM_COLORS = [
-  '#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6',
-  '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#06b6d4'
+const ROOM_COLOR_VARS = [
+  'var(--cr-color-1)',
+  'var(--cr-color-2)',
+  'var(--cr-color-3)',
+  'var(--cr-color-4)',
+  'var(--cr-color-5)',
+  'var(--cr-color-6)',
+  'var(--cr-color-7)',
+  'var(--cr-color-8)',
+  'var(--cr-color-9)',
+  'var(--cr-color-10)',
 ];
 
 export function CompareRooms() {
@@ -166,7 +174,7 @@ export function CompareRooms() {
                 />
                 <span
                   className="checkbox-indicator"
-                  style={{ backgroundColor: selectedRoomIds.includes(room.id) ? ROOM_COLORS[index % ROOM_COLORS.length] : undefined }}
+                  style={{ backgroundColor: selectedRoomIds.includes(room.id) ? ROOM_COLOR_VARS[index % ROOM_COLOR_VARS.length] : undefined }}
                 />
                 <span className="room-name">{room.name}</span>
               </label>
@@ -230,23 +238,25 @@ export function CompareRooms() {
               ) : (
                 <ResponsiveContainer width="100%" height={400}>
                   <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis
                       dataKey="displayTime"
-                      stroke="#6b7280"
+                      stroke="var(--color-text-tertiary)"
                       style={{ fontSize: '12px' }}
                     />
                     <YAxis
-                      stroke="#6b7280"
+                      stroke="var(--color-text-tertiary)"
                       style={{ fontSize: '12px' }}
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                        backgroundColor: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        boxShadow: 'var(--shadow-md)',
                       }}
+                      itemStyle={{ color: 'var(--color-text-primary)' }}
+                      labelStyle={{ color: 'var(--color-text-secondary)' }}
                     />
                     <Legend />
                     {selectedRoomIds.map((roomId, index) => {
@@ -258,7 +268,7 @@ export function CompareRooms() {
                           key={roomId}
                           type="monotone"
                           dataKey={`${room.name}_${selectedMetric}`}
-                          stroke={ROOM_COLORS[index % ROOM_COLORS.length]}
+                          stroke={ROOM_COLOR_VARS[index % ROOM_COLOR_VARS.length]}
                           strokeWidth={2}
                           dot={false}
                           name={room.name}
@@ -297,7 +307,7 @@ export function CompareRooms() {
                           <div className="room-cell">
                             <span
                               className="room-indicator"
-                              style={{ backgroundColor: ROOM_COLORS[index % ROOM_COLORS.length] }}
+                              style={{ backgroundColor: ROOM_COLOR_VARS[index % ROOM_COLOR_VARS.length] }}
                             />
                             {stat.room.name}
                           </div>

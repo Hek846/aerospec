@@ -1,62 +1,84 @@
 .compare-rooms {
+  --cr-color-1: var(--color-primary);
+  --cr-color-2: var(--color-primary-light);
+  --cr-color-3: var(--color-accent);
+  --cr-color-4: var(--color-primary-dark);
+  --cr-color-5: var(--color-accent-light);
+  --cr-color-6: var(--color-info);
+  --cr-color-7: var(--color-warning);
+  --cr-color-8: var(--color-success);
+  --cr-color-9: var(--color-error);
+  --cr-color-10: var(--color-aqi-sensitive);
+
   display: flex;
   flex-direction: column;
   gap: clamp(1.75rem, 4vw, 3rem);
 }
 
 .compare-header {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.72));
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: clamp(1.5rem, 3vw, 2.5rem);
-  box-shadow: 0 24px 60px rgba(15, 20, 25, 0.08);
   position: relative;
   overflow: hidden;
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  background: var(--card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.compare-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: var(--gradient-hero);
 }
 
 .compare-header::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 80% 10%, rgba(99, 102, 241, 0.14), transparent 50%);
+  background: radial-gradient(circle at 85% 10%, var(--chip-bg), transparent 45%);
   pointer-events: none;
 }
 
 .compare-header h1 {
-  margin: 0;
-  font-size: clamp(2rem, 4vw, 2.8rem);
-  color: var(--color-text-primary);
-  letter-spacing: -0.01em;
   position: relative;
   z-index: 1;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
 }
 
 .compare-subtitle {
-  font-size: var(--text-base);
-  color: var(--color-text-secondary);
-  margin: 0.5rem 0 0;
   position: relative;
   z-index: 1;
+  margin: 0.5rem 0 0;
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
 }
 
 .compare-controls {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   gap: var(--space-6);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.55));
+  padding: clamp(1.25rem, 2vw, 1.75rem);
+  background: var(--card-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: clamp(1.25rem, 2vw, 1.75rem);
-  box-shadow: 0 8px 24px rgba(15, 20, 25, 0.06);
+  box-shadow: var(--shadow-md);
 }
 
 .control-group h3 {
   margin: 0 0 1rem;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--color-text-secondary);
-  font-weight: 600;
 }
 
 .room-checkboxes {
@@ -75,7 +97,7 @@
 }
 
 .room-checkbox:hover {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .room-checkbox input[type="checkbox"] {
@@ -88,22 +110,27 @@
 .checkbox-indicator {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
+  background: var(--color-surface-elevated);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: white;
   transition: all var(--transition-fast);
-  flex-shrink: 0;
 }
 
 .room-checkbox input:checked + .checkbox-indicator {
   border-color: transparent;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
+}
+
+.room-checkbox input:focus-visible + .checkbox-indicator {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
 }
 
 .room-name {
   font-size: var(--text-sm);
-  color: var(--color-text-primary);
   font-weight: 500;
+  color: var(--color-text-primary);
 }
 
 .time-range-buttons {
@@ -113,38 +140,38 @@
 }
 
 .range-button {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: white;
-  color: var(--color-text-primary);
+  padding: 0.65rem 1rem;
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .range-button:hover {
   border-color: var(--color-primary);
-  background: rgba(20, 171, 175, 0.05);
+  background: var(--hover-bg);
 }
 
 .range-button.active {
+  color: var(--color-text-inverse);
   background: var(--color-primary);
-  color: white;
   border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(20, 171, 175, 0.25);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-primary) 28%, transparent);
 }
 
 .metric-select {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: white;
-  color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-weight: 500;
+  color: var(--color-text-primary);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -153,7 +180,7 @@
 .metric-select:focus {
   border-color: var(--color-primary);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(20, 171, 175, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
 .empty-state {
@@ -162,16 +189,16 @@
   align-items: center;
   justify-content: center;
   padding: clamp(3rem, 6vw, 5rem);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.55));
+  text-align: center;
+  background: var(--gradient-mint);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-xl);
-  text-align: center;
 }
 
 .empty-icon {
-  font-size: 4rem;
   margin-bottom: 1rem;
-  opacity: 0.5;
+  font-size: 4rem;
+  opacity: 0.6;
 }
 
 .empty-state h2 {
@@ -182,29 +209,32 @@
 
 .empty-state p {
   margin: 0;
-  color: var(--color-text-secondary);
   font-size: var(--text-base);
+  color: var(--color-text-secondary);
 }
 
-.compare-chart-section {
+.compare-chart-section,
+.compare-stats-section {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-.compare-chart-section h2 {
+.compare-chart-section h2,
+.compare-stats-section h2 {
   margin: 0;
   font-size: var(--text-xl);
-  color: var(--color-text-primary);
   letter-spacing: -0.01em;
+  color: var(--color-text-primary);
 }
 
-.chart-container {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.72));
+.chart-container,
+.stats-table-container {
+  padding: clamp(1.25rem, 2vw, 2rem);
+  background: var(--card-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: clamp(1.25rem, 2vw, 2rem);
-  box-shadow: 0 8px 24px rgba(15, 20, 25, 0.06);
+  box-shadow: var(--shadow-md);
 }
 
 .chart-empty {
@@ -212,30 +242,8 @@
   align-items: center;
   justify-content: center;
   height: 400px;
-  color: var(--color-text-secondary);
   font-size: var(--text-base);
-}
-
-.compare-stats-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.compare-stats-section h2 {
-  margin: 0;
-  font-size: var(--text-xl);
-  color: var(--color-text-primary);
-  letter-spacing: -0.01em;
-}
-
-.stats-table-container {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.72));
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 0;
-  box-shadow: 0 8px 24px rgba(15, 20, 25, 0.06);
-  overflow: hidden;
+  color: var(--color-text-secondary);
 }
 
 .stats-table {
@@ -244,18 +252,18 @@
 }
 
 .stats-table thead {
-  background: rgba(13, 115, 119, 0.08);
+  background: var(--color-primary-surface);
   border-bottom: 1px solid var(--color-border);
 }
 
 .stats-table th {
   padding: 1rem 1.5rem;
-  text-align: left;
   font-size: var(--text-xs);
+  font-weight: 700;
+  text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--color-text-secondary);
-  font-weight: 600;
 }
 
 .stats-table tbody tr {
@@ -268,7 +276,7 @@
 }
 
 .stats-table tbody tr:hover {
-  background: rgba(20, 171, 175, 0.04);
+  background: var(--hover-bg);
 }
 
 .stats-table td {
@@ -281,7 +289,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .room-indicator {
@@ -293,7 +301,7 @@
 
 .stat-value {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text-primary);
 }
 
@@ -314,6 +322,7 @@
 @media (max-width: 768px) {
   .time-range-buttons {
     flex-direction: row;
+    flex-wrap: wrap;
   }
 
   .stats-table-container {

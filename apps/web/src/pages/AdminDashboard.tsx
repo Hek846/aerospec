@@ -236,11 +236,10 @@ export function AdminDashboard() {
                   <td>
                     <div className="battery-indicator">
                       <div
-                        className="battery-fill"
-                        style={{
-                          width: `${device.batteryLevel}%`,
-                          backgroundColor: device.batteryLevel > 50 ? '#4CAF50' : device.batteryLevel > 20 ? '#FF9800' : '#f44336'
-                        }}
+                        className={`battery-fill ${
+                          device.batteryLevel > 50 ? 'high' : device.batteryLevel > 20 ? 'mid' : 'low'
+                        }`}
+                        style={{ width: `${device.batteryLevel}%` }}
                       />
                       <span>{device.batteryLevel}%</span>
                     </div>

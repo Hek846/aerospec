@@ -248,8 +248,8 @@ export function Reports() {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="avgAqi" fill="#14ABAF" name="Average AQI" />
-                      <Bar dataKey="maxAqi" fill="#F59E0B" name="Peak AQI" />
+                      <Bar dataKey="avgAqi" fill="var(--report-bar-primary)" name="Average AQI" />
+                      <Bar dataKey="maxAqi" fill="var(--report-bar-peak)" name="Peak AQI" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -300,9 +300,9 @@ export function Reports() {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="min" fill="#2196F3" name="Minimum" />
-                      <Bar dataKey="avg" fill="#14ABAF" name="Average" />
-                      <Bar dataKey="max" fill="#F59E0B" name="Maximum" />
+                      <Bar dataKey="min" fill="var(--report-bar-min)" name="Minimum" />
+                      <Bar dataKey="avg" fill="var(--report-bar-avg)" name="Average" />
+                      <Bar dataKey="max" fill="var(--report-bar-max)" name="Maximum" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
