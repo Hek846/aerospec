@@ -104,6 +104,26 @@ async function findOrCreateHome(
   return inserted.rows[0]!.id;
 }
 
+/** Rooms also lack a unique constraint; look up by (home, name) before inserting. */
+async function findOrCreateRoom(
+  pool: ReturnType<typeof getPool>,
+  homeId: string,
+  name: string,
+  type: string,
+  floor: number
+): Promise<string> {
+  const existing = await pool.query<{ id: string }>(
+    `SELECT id FROM rooms WHERE home_id = $1 AND name = $2 LIMIT 1`,
+    [homeId, name]
+  );
+  if (existing.rows[0]) return existing.rows[0].id;
+  const inserted = await pool.query<{ id: string }>(
+    `INSERT INTO rooms (home_id, name, type, floor) VALUES ($1, $2, $3, $4) RETURNING id`,
+    [homeId, name, type, floor]
+  );
+  return inserted.rows[0]!.id;
+}
+
 function simulateReadings(opts: SimulateOptions): SimReading[] {
   const { days, intervalMs, socialRoom, deviceIndex, baselinePmShift = 0, includeCo2Voc = false } = opts;
   const readings: SimReading[] = [];
@@ -370,11 +390,7 @@ export async function seedDatabase(): Promise<void> {
   for (let i = 0; i < ROOM_SEEDS.length; i++) {
     const seed = ROOM_SEEDS[i]!;
 
-    const roomResult = await pool.query<{ id: string }>(
-      `INSERT INTO rooms (home_id, name, type, floor) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [homeId, seed.name, seed.type, seed.floor]
-    );
-    const roomId = roomResult.rows[0]!.id;
+    const roomId = await findOrCreateRoom(pool, homeId, seed.name, seed.type, seed.floor);
 
     const readings = simulateReadings({
       days: ADMIN_DAYS,
@@ -440,11 +456,13 @@ export async function seedDatabase(): Promise<void> {
 
     for (let r = 0; r < neighbor.rooms.length; r++) {
       const roomSeed = neighbor.rooms[r]!;
-      const roomResult = await pool.query<{ id: string }>(
-        `INSERT INTO rooms (home_id, name, type, floor) VALUES ($1, $2, $3, $4) RETURNING id`,
-        [neighborHomeId, roomSeed.name, roomSeed.type, roomSeed.floor]
+      const roomId = await findOrCreateRoom(
+        pool,
+        neighborHomeId,
+        roomSeed.name,
+        roomSeed.type,
+        roomSeed.floor
       );
-      const roomId = roomResult.rows[0]!.id;
 
       const readings = simulateReadings({
         days: NEIGHBOR_DAYS,
