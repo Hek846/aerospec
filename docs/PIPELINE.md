@@ -117,6 +117,63 @@ flowchart LR
 
 ## 3. Backend data model (Postgres + TimescaleDB)
 
+```mermaid
+erDiagram
+    users ||--o{ home_members : "joins"
+    homes ||--o{ home_members : "has"
+    homes ||--o{ rooms : "contains"
+    homes ||--o{ devices : "claims"
+    rooms |o--o{ devices : "hosts"
+    devices ||--o{ sensor_readings : "reports"
+    homes ||--o{ annotations : "has"
+    rooms |o--o{ annotations : "tags"
+    devices |o--o{ annotations : "tags"
+    users ||--o{ annotations : "writes"
+    devices ||--o{ hourly_device_stats : "aggregates"
+
+    users {
+        uuid id PK
+    }
+    homes {
+        uuid id PK
+    }
+    rooms {
+        uuid id PK
+        uuid home_id FK
+    }
+    devices {
+        uuid id PK
+        uuid home_id FK
+        uuid room_id FK
+    }
+    sensor_readings {
+        uuid device_id PK,FK
+        timestamptz ts PK
+    }
+    annotations {
+        uuid id PK
+        uuid home_id FK
+        uuid room_id FK
+        uuid device_id FK
+        uuid user_id FK
+        timestamptz ts
+        text[] tags
+        text note
+        timestamptz created_at
+    }
+    hourly_device_stats {
+        uuid device_id FK
+        timestamptz hour
+        double avg_pm25
+        double avg_pm10
+        double avg_co2
+        double avg_voc_index
+        double avg_humidity
+        double avg_aqi
+        bigint reading_count
+    }
+```
+
 - `users` — id, email (unique), password_hash (bcrypt), name,
   role (`user` | `admin`).
 - `homes` — id, name, lat, lon, city, region, timezone.
@@ -127,6 +184,16 @@ flowchart LR
 - `sensor_readings` — TimescaleDB hypertable, PK `(device_id, ts)`. Columns
   mirror the ingest payload plus computed `aqi`. Nullable `co2`, `voc_index`,
   `noise_db` reserved for future hardware.
+- `annotations` — user-entered factor notes for a home at timestamp `ts`,
+  optionally scoped to a room and/or device. `tags` is a client-owned subset
+  of `cooking`, `cleaning`, `windows_open`, `guests`,
+  `candles_incense`, `smoking`, `air_purifier_on`, `hvac_on`, `pets`,
+  `outdoor_event`, `other`; optional `note` stores free text.
+- `hourly_device_stats` — per-device hourly analytics relation with
+  `avg_pm25` = `avg(coalesce(pm25_corr, pm25_env))`, plus average PM10, CO2,
+  VOC index, humidity, AQI, and `reading_count`. It is a TimescaleDB
+  continuous aggregate when TimescaleDB is available, otherwise a plain
+  Postgres view with the same name and columns.
 - `alert_rules`, `alert_events` — same semantics as the old JSON fixtures.
 
 ## 4. Backend HTTP API
@@ -168,7 +235,7 @@ flowchart TB
 | `GET /devices/:id/readings?range=24h\|7d\|30d` | time-bucketed (see below) |
 | `GET /devices/:id/export`, `GET /homes/:id/export` | CSV/JSON |
 | `POST /ingest/readings` (new) | see section 2 |
-| `GET /map/cells?bbox=&hours=` (new) | privacy-fuzzed grid aggregation |
+| `GET /map/cells?bbox=&hours=&res=` (new) | privacy-fuzzed H3 aggregation |
 | `GET /external/openaq/latest?bbox=` (new) | OpenAQ v3 proxy w/ cache |
 | `/alerts`, `/reports`, `/compare`, `/admin` | same shapes, DB-backed |
 
@@ -186,8 +253,15 @@ flowchart TB
   (~360 points). Uses TimescaleDB `time_bucket` when available, falling back
   to `date_bin` on plain Postgres. Response keeps the
   `{ deviceId, range, readings, pagination }` envelope, readings ascending.
-- `GET /map/cells` responds `{ cells: [...], total, hours }` with cells
-  `{ lat, lon, deviceCount, avgPm25, avgAqi, lastTs }`.
+- `GET /map/cells` responds `{ cells: [...], total, hours, resolution }`.
+  `bbox=minLon,minLat,maxLon,maxLat` is required; `hours` clamps to 1..720;
+  optional `res` clamps to H3 resolutions 5..9. Without `res`, the server
+  selects resolution from bbox longitude span: `>2° => 5`, `>0.5° => 6`,
+  `>0.15° => 7`, otherwise `8`. Each cell is
+  `{ h3, resolution, centerLat, centerLon, lat, lon, boundary, deviceCount,
+  avgPm25, avgAqi, lastTs }`. `boundary` is GeoJSON coordinate order
+  `[[lon, lat], ...]`. `lat` and `lon` are deprecated aliases for
+  `centerLat` and `centerLon` kept for the current web map.
 - `GET /external/openaq/latest` responds `{ stations: [...], total, cached }`
   with stations `{ id, name, lat, lon, pm25, aqi, lastUpdated }`.
 - `/reports/weekly` computes reports on the fly (no stored reports). Report
@@ -201,20 +275,24 @@ flowchart TB
   device row if the serial is unknown, claims it when unclaimed, and returns
   409 if another home already claimed it.
 
-### Privacy fuzzing (`/map/cells`)
+### H3 privacy aggregation (`/map/cells`)
 
 ```mermaid
 flowchart LR
-    R[("Per-device readings<br/>+ home lat/lon")] --> G["Round to ~0.01° grid"]
-    G --> C["Cell: center lat/lon,<br/>deviceCount, avgPm25, avgAqi"]
+    R[("Per-device readings")] --> H["Aggregate per home<br/>server-side"]
+    H --> G["Merge homes into<br/>H3 cells res 5-9"]
+    G --> C["Cell: h3, boundary,<br/>center, deviceCount,<br/>avgPm25, avgAqi"]
     C --> API["GET /map/cells"]
 ```
 
-Device locations are NEVER returned individually. Readings are aggregated
-into ~1.1 km grid cells (lat/lon rounded to 0.01°); each cell returns center
-coordinates, device count, avg PM2.5 / AQI over the window. Cells with data
-from fewer than 1 device are still shown but never expose the serial or exact
-coordinates.
+Per-home locations are **never exposed**. The database query aggregates
+readings by home only inside the API process, then the response merges those
+home aggregates into H3 hex cells. Public detail is capped to resolution 9 and
+may be coarser for wide bounding boxes; resolution 8 averages roughly
+0.7 km² per hex, while resolution 9 is the maximum-detail cap. Each cell
+returns the H3 id, center, boundary, device count, weighted average PM2.5/AQI,
+and last timestamp. Serials, device coordinates, and exact home coordinates
+stay server-side.
 
 ### OpenAQ proxy
 

@@ -72,6 +72,35 @@ export interface SensorReading {
   anomalyFlags: string[]; // e.g., ["PM_SPIKE", "CO2_HIGH"]
 }
 
+// Annotation Types
+export const FACTOR_TAGS = [
+  'cooking',
+  'cleaning',
+  'windows_open',
+  'guests',
+  'candles_incense',
+  'smoking',
+  'air_purifier_on',
+  'hvac_on',
+  'pets',
+  'outdoor_event',
+  'other',
+] as const;
+
+export type FactorTag = (typeof FACTOR_TAGS)[number];
+
+export interface Annotation {
+  id: string;
+  homeId: string;
+  roomId: string | null;
+  deviceId: string | null;
+  userId: string;
+  ts: string; // ISO timestamp
+  tags: FactorTag[];
+  note: string | null;
+  createdAt: string; // ISO timestamp
+}
+
 // Alert Types
 export type ThresholdType = 'above' | 'below';
 export type MetricType = 'pm25' | 'pm10' | 'co2' | 'vocIndex' | 'noiseDb';

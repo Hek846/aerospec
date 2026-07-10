@@ -86,8 +86,8 @@ sequenceDiagram
     A->>D: latest reading per device
     A-->>W: devices + latestReading + AQI
     W->>A: GET /map/cells?bbox=…
-    A->>D: grid aggregation (privacy fuzz)
-    A-->>W: cells (no serials, no exact coords)
+    A->>D: per-home aggregate query
+    A-->>W: H3 cells (no serials, no exact coords)
 ```
 
 Idempotency: readings are keyed `(device_id, ts)`; re-uploading overlapping
@@ -123,6 +123,11 @@ erDiagram
     homes ||--o{ devices : "claims"
     rooms |o--o{ devices : "hosts"
     devices ||--o{ sensor_readings : "reports"
+    homes ||--o{ annotations : "has"
+    rooms |o--o{ annotations : "tags"
+    devices |o--o{ annotations : "tags"
+    users ||--o{ annotations : "writes"
+    devices ||--o{ hourly_device_stats : "aggregates"
     homes ||--o{ alert_rules : "scopes"
     devices ||--o{ alert_rules : "scopes"
     alert_rules ||--o{ alert_events : "fires"
@@ -172,6 +177,28 @@ erDiagram
         jsonb bins "particle size bins"
         real aqi "EPA PM2.5 AQI"
     }
+    annotations {
+        uuid id PK
+        uuid home_id FK
+        uuid room_id FK "nullable"
+        uuid device_id FK "nullable"
+        uuid user_id FK
+        timestamptz ts
+        text[] tags
+        text note
+        timestamptz created_at
+    }
+    hourly_device_stats {
+        uuid device_id FK
+        timestamptz hour
+        double avg_pm25
+        double avg_pm10
+        double avg_co2
+        double avg_voc_index
+        double avg_humidity
+        double avg_aqi
+        bigint reading_count
+    }
     alert_rules {
         uuid id PK
         uuid home_id FK
@@ -192,6 +219,9 @@ erDiagram
 (plain-Postgres fallback works). Range queries downsample server-side: raw
 for 24 h, 30-minute buckets for 7 d, 2-hour buckets for 30 d.
 
+`hourly_device_stats` is exposed as a TimescaleDB continuous aggregate when
+available, with a plain-Postgres view fallback of the same name and columns.
+
 ## 5. Device onboarding workflow
 
 ```mermaid
@@ -211,17 +241,21 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    R[("sensor_readings<br/>+ home lat/lon")] --> AGG["Aggregate into<br/>~0.01° grid cells"]
-    AGG --> CELLS["GET /map/cells<br/>{lat, lon, deviceCount,<br/>avgPm25, avgAqi}"]
+    R[("sensor_readings<br/>+ home lat/lon")] --> HOME["Aggregate per home<br/>inside API"]
+    HOME --> AGG["Merge into H3 cells<br/>res 5-9"]
+    AGG --> CELLS["GET /map/cells<br/>{h3, boundary, center,<br/>deviceCount, avgPm25, avgAqi}"]
     OAQ["OpenAQ v3"] --> P["Proxy: pm25 stations,<br/>active within 7 days,<br/>per-station /latest,<br/>10 min cache"]
     P --> ST["GET /external/openaq/latest<br/>{name, lat, lon, pm25, aqi}"]
     CELLS --> MAP["MapLibre map<br/>filled dot = AeroSpec cell<br/>ring = OpenAQ station"]
     ST --> MAP
 ```
 
-User-owned sensor locations are **never exposed individually**: readings are
-averaged into grid cells and serials/exact coordinates stay server-side.
-OpenAQ requires an API key (`OPENAQ_API_KEY` in `.env`).
+User-owned home locations are **never exposed individually**: readings are
+aggregated by home inside the API, then merged into H3 hex cells before any
+map response is returned. Public map detail is clamped to H3 resolutions 5-9;
+resolution 8 averages roughly 0.7 km² per hex, and resolution 9 is the
+maximum-detail cap. Serials, device coordinates, and exact home coordinates
+stay server-side. OpenAQ requires an API key (`OPENAQ_API_KEY` in `.env`).
 
 ## 7. Deployment
 
