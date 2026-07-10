@@ -72,6 +72,38 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+/**
+ * Homes have no unique constraint, so re-running the seed must look up by
+ * name before inserting or every run duplicates the home (and strands the
+ * previous one without devices).
+ */
+async function findOrCreateHome(
+  pool: ReturnType<typeof getPool>,
+  name: string,
+  lat: number,
+  lon: number
+): Promise<string> {
+  const existing = await pool.query<{ id: string }>(
+    `SELECT id FROM homes WHERE name = $1 ORDER BY created_at ASC LIMIT 1`,
+    [name]
+  );
+  if (existing.rows[0]) {
+    await pool.query(`UPDATE homes SET lat = $2, lon = $3 WHERE id = $1`, [
+      existing.rows[0].id,
+      lat,
+      lon
+    ]);
+    return existing.rows[0].id;
+  }
+  const inserted = await pool.query<{ id: string }>(
+    `INSERT INTO homes (name, lat, lon, city, region, timezone)
+     VALUES ($1, $2, $3, 'Lynnwood', 'WA', 'America/Los_Angeles')
+     RETURNING id`,
+    [name, lat, lon]
+  );
+  return inserted.rows[0]!.id;
+}
+
 function simulateReadings(opts: SimulateOptions): SimReading[] {
   const { days, intervalMs, socialRoom, deviceIndex, baselinePmShift = 0, includeCo2Voc = false } = opts;
   const readings: SimReading[] = [];
@@ -322,13 +354,7 @@ export async function seedDatabase(): Promise<void> {
   const adminLat = 47.8279;
   const adminLon = -122.3053;
 
-  const homeResult = await pool.query<{ id: string }>(
-    `INSERT INTO homes (name, lat, lon, city, region, timezone)
-     VALUES ('Lynnwood Home', $1, $2, 'Lynnwood', 'WA', 'America/Los_Angeles')
-     RETURNING id`,
-    [adminLat, adminLon]
-  );
-  const homeId = homeResult.rows[0]!.id;
+  const homeId = await findOrCreateHome(pool, 'Lynnwood Home', adminLat, adminLon);
 
   await pool.query(
     `INSERT INTO home_members (home_id, user_id, role) VALUES ($1, $2, 'owner')
@@ -403,13 +429,7 @@ export async function seedDatabase(): Promise<void> {
     );
     const neighborUserId = neighborUserResult.rows[0]!.id;
 
-    const neighborHomeResult = await pool.query<{ id: string }>(
-      `INSERT INTO homes (name, lat, lon, city, region, timezone)
-       VALUES ($1, $2, $3, 'Lynnwood', 'WA', 'America/Los_Angeles')
-       RETURNING id`,
-      [neighbor.name, neighbor.lat, neighbor.lon]
-    );
-    const neighborHomeId = neighborHomeResult.rows[0]!.id;
+    const neighborHomeId = await findOrCreateHome(pool, neighbor.name, neighbor.lat, neighbor.lon);
     neighborHomeCount++;
 
     await pool.query(
@@ -489,6 +509,9 @@ export async function seedDatabase(): Promise<void> {
       deviceId: roomDevice ? roomDevice.deviceId : null
     });
   }
+
+  // Seed owns the demo annotations: clear before insert so re-runs don't duplicate
+  await pool.query(`DELETE FROM annotations WHERE home_id = $1`, [homeId]);
 
   for (const annotation of annotations) {
     await pool.query(
