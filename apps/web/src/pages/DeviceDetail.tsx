@@ -1,14 +1,62 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDevice, useRoom, useDeviceReadings } from '../hooks/useData';
 import { AQIBadge } from '../components/AQIBadge';
 import { MetricCard } from '../components/MetricCard';
 import { ExportButton } from '../components/ExportButton';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { format } from 'date-fns';
+import { AnnotationDialog } from '../components/AnnotationDialog';
+import { TAG_META } from '../components/AnnotationDialog';
+import { getAnnotations } from '../api/annotations';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, type TooltipProps } from 'recharts';
+import { format, subHours, subDays } from 'date-fns';
+import { getCompareContext, CompareContext } from '../api/compare';
+import { getAQIBand } from '../utils/aqi';
+import type { Annotation } from '@aerospec/types';
 import './DeviceDetail.css';
 
 type TimeRange = '24h' | '7d' | '30d';
+
+interface CompareTileProps {
+  title: string;
+  subtitle: string;
+  aqi: number | null;
+  pm25: number | null;
+  emptyText?: string;
+  primary?: boolean;
+}
+
+function CompareTile({ title, subtitle, aqi, pm25, emptyText, primary }: CompareTileProps) {
+  const band = aqi !== null ? getAQIBand(aqi) : undefined;
+  const className = [
+    'compare-card',
+    primary ? 'compare-card--primary' : '',
+    band ? `compare-card--band-${band}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div className={className}>
+      <div className="compare-card__header">
+        <span className="compare-card__title">{title}</span>
+        <span className="compare-card__subtitle">{subtitle}</span>
+      </div>
+      {aqi === null ? (
+        <p className="compare-card__empty">{emptyText ?? 'No data available'}</p>
+      ) : (
+        <div className="compare-card__body">
+          <AQIBadge aqi={aqi} size="large" showBand={true} />
+          <div className="compare-card__metric">
+            <span className="compare-card__metric-value">
+              {pm25 !== null ? pm25.toFixed(1) : '—'}
+            </span>
+            <span className="compare-card__metric-label">Avg PM2.5 µg/m³</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function DeviceDetail() {
   const { deviceId } = useParams<{ deviceId: string }>();
@@ -18,8 +66,95 @@ export function DeviceDetail() {
   const { readings, loading } = useDeviceReadings(deviceId, timeRange);
   const latestReading = device?.latestReading;
 
+  const [compareContext, setCompareContext] = useState<CompareContext | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordSuccess, setRecordSuccess] = useState<string | null>(null);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+
+  useEffect(() => {
+    if (!recordSuccess) return;
+    const timer = window.setTimeout(() => setRecordSuccess(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [recordSuccess]);
+
+  useEffect(() => {
+    if (!deviceId) return;
+    let alive = true;
+    setCompareLoading(true);
+    getCompareContext(deviceId, 24)
+      .then(data => {
+        if (alive) {
+          setCompareContext(data);
+          setCompareLoading(false);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load comparison context:', err);
+        if (alive) setCompareLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [deviceId]);
+
+  useEffect(() => {
+    if (!device?.homeId) return;
+    let alive = true;
+
+    const now = new Date();
+    const from = timeRange === '24h'
+      ? subHours(now, 24)
+      : timeRange === '7d'
+        ? subDays(now, 7)
+        : subDays(now, 30);
+
+    getAnnotations({
+      homeId: device.homeId,
+      from: from.toISOString(),
+      to: now.toISOString(),
+    })
+      .then(data => {
+        if (alive) setAnnotations(data.annotations);
+      })
+      .catch(err => {
+        console.error('Failed to load annotations:', err);
+        if (alive) setAnnotations([]);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [device?.homeId, timeRange]);
+
+  // Snap each annotation to the nearest reading (by index): readings arrive
+  // on a fixed interval while annotations have arbitrary timestamps, and the
+  // chart's category axis can contain duplicate formatted labels, so neither
+  // exact-time nor label-based matching works.
+  const annotationsByIndex = useMemo(() => {
+    const map = new Map<number, Annotation[]>();
+    if (readings.length === 0) return map;
+
+    annotations.forEach(annotation => {
+      const ts = new Date(annotation.ts).getTime();
+      let bestIndex = 0;
+      let bestDelta = Infinity;
+      readings.forEach((reading, index) => {
+        const delta = Math.abs(new Date(reading.timestamp).getTime() - ts);
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          bestIndex = index;
+        }
+      });
+      const list = map.get(bestIndex) ?? [];
+      list.push(annotation);
+      map.set(bestIndex, list);
+    });
+    return map;
+  }, [annotations, readings]);
+
   const chartData = useMemo(() => {
-    return readings.map(reading => ({
+    return readings.map((reading, index) => ({
       timestamp: format(new Date(reading.timestamp), timeRange === '24h' ? 'HH:mm' : 'MMM dd'),
       pm25: reading.pm25,
       pm10: reading.pm10,
@@ -27,8 +162,54 @@ export function DeviceDetail() {
       humidity: reading.humidity,
       pressure: reading.pressure,
       aqi: reading.aqi,
+      // Non-null only where a reaction was recorded; rendered as a
+      // dot-only series on the PM2.5 chart.
+      annotationPm25: annotationsByIndex.has(index) ? reading.pm25 : null,
     }));
-  }, [readings, timeRange]);
+  }, [readings, timeRange, annotationsByIndex]);
+
+  // Tooltip lookup by the hovered category label.
+  const annotationMap = useMemo(() => {
+    const map = new Map<string, Annotation[]>();
+    annotationsByIndex.forEach((list, index) => {
+      const point = chartData[index];
+      if (!point) return;
+      map.set(point.timestamp, [...(map.get(point.timestamp) ?? []), ...list]);
+    });
+    return map;
+  }, [annotationsByIndex, chartData]);
+
+  const AnnotationTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+    if (!active) return null;
+    const list = annotationMap.get(String(label));
+    const allTags = list ? Array.from(new Set(list.flatMap(a => a.tags))) : [];
+
+    return (
+      <div className="annotation-tooltip">
+        {payload?.filter(entry => entry.dataKey !== 'annotationPm25').map(entry => (
+          <div key={String(entry.dataKey)} className="annotation-tooltip__row">
+            <span
+              className="annotation-tooltip__dot"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span>{entry.name}: {entry.value !== undefined ? Number(entry.value).toFixed(1) : '—'}</span>
+          </div>
+        ))}
+        {allTags.length > 0 && (
+          <div className="annotation-tooltip__factors">
+            <span className="annotation-tooltip__label">Factors</span>
+            <div className="annotation-tooltip__tags">
+              {allTags.map(tag => (
+                <span key={tag} className="annotation-tooltip__tag">
+                  {TAG_META[tag].emoji} {TAG_META[tag].label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (!device) {
     return (
@@ -92,6 +273,18 @@ export function DeviceDetail() {
           </div>
         </div>
         <div className="device-header-actions">
+          {recordSuccess && (
+            <span className="device-record-success" role="status">
+              {recordSuccess}
+            </span>
+          )}
+          <button
+            type="button"
+            className="record-pill"
+            onClick={() => setRecordOpen(true)}
+          >
+            ✎ Record a reaction
+          </button>
           <ExportButton onExport={handleExport} label="Export Device Data" />
           <div className={`status-badge status-badge--${device.status}`}>
             {device.status}
@@ -109,6 +302,45 @@ export function DeviceDetail() {
               </div>
             </section>
           )}
+
+          <section className="comparison-section">
+            <h2>Compare Average AQI</h2>
+            {compareLoading && !compareContext ? (
+              <div className="comparison-loading">Loading comparison data…</div>
+            ) : (
+              <div className="comparison-grid">
+                <CompareTile
+                  title={compareContext?.device.name ?? device.name}
+                  subtitle="Your device"
+                  aqi={compareContext?.device.avgAqi ?? null}
+                  pm25={compareContext?.device.avgPm25 ?? null}
+                  primary
+                />
+                <CompareTile
+                  title="Neighborhood"
+                  subtitle={
+                    compareContext?.neighborhood
+                      ? `${compareContext.neighborhood.deviceCount} nearby devices`
+                      : 'Neighborhood'
+                  }
+                  aqi={compareContext?.neighborhood?.avgAqi ?? null}
+                  pm25={compareContext?.neighborhood?.avgPm25 ?? null}
+                  emptyText="Not enough nearby data yet"
+                />
+                <CompareTile
+                  title={compareContext?.city?.name ?? 'City'}
+                  subtitle={
+                    compareContext?.city
+                      ? `${compareContext.city.stationCount} monitoring stations`
+                      : 'Citywide average'
+                  }
+                  aqi={compareContext?.city?.avgAqi ?? null}
+                  pm25={compareContext?.city?.avgPm25 ?? null}
+                  emptyText="Not enough nearby data yet"
+                />
+              </div>
+            )}
+          </section>
 
           <section className="current-metrics">
             <h2>Current Readings</h2>
@@ -229,13 +461,7 @@ export function DeviceDetail() {
                     stroke="var(--color-text-tertiary)"
                     tick={{ fill: 'var(--color-text-tertiary)' }}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--color-surface)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)'
-                    }}
-                  />
+                  <Tooltip content={<AnnotationTooltip />} />
                   <Legend />
                   <Line
                     type="monotone"
@@ -252,6 +478,19 @@ export function DeviceDetail() {
                     strokeWidth={2}
                     dot={false}
                     name="PM10"
+                  />
+                  <Line
+                    dataKey="annotationPm25"
+                    stroke="none"
+                    legendType="none"
+                    isAnimationActive={false}
+                    dot={{
+                      r: 5,
+                      fill: 'var(--color-primary-bright)',
+                      stroke: 'var(--color-primary)',
+                      strokeWidth: 2,
+                    }}
+                    name="Reaction"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -325,6 +564,18 @@ export function DeviceDetail() {
           </div>
         </div>
       </section>
+
+      {device.homeId && (
+        <AnnotationDialog
+          isOpen={recordOpen}
+          onClose={() => setRecordOpen(false)}
+          homeId={device.homeId}
+          deviceId={device.id}
+          onSuccess={() => {
+            setRecordSuccess('Reaction recorded.');
+          }}
+        />
+      )}
     </div>
   );
 }

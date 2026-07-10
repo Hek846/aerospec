@@ -18,6 +18,7 @@ import { MetricCard } from '../components/MetricCard';
 import { DeviceCard } from '../components/DeviceCard';
 import { ExportButton } from '../components/ExportButton';
 import { GradientHeader } from '../components/GradientHeader';
+import { AnnotationDialog } from '../components/AnnotationDialog';
 import {
   DailyScore,
   ScoreBreakdown,
@@ -147,6 +148,14 @@ export function Dashboard() {
   const [trendPoints, setTrendPoints] = useState<TrendChartPoint[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [alertEvents, setAlertEvents] = useState<AlertEvent[]>([]);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordSuccess, setRecordSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!recordSuccess) return;
+    const timer = window.setTimeout(() => setRecordSuccess(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [recordSuccess]);
 
   useEffect(() => {
     if (!home?.id) return;
@@ -302,6 +311,20 @@ export function Dashboard() {
       </GradientHeader>
 
       <section className="dashboard-hero" aria-label="Today overview">
+        <div className="dashboard-hero__actions">
+          {recordSuccess && (
+            <span className="dashboard-record-success" role="status">
+              {recordSuccess}
+            </span>
+          )}
+          <button
+            type="button"
+            className="record-pill"
+            onClick={() => setRecordOpen(true)}
+          >
+            ✎ Record a reaction
+          </button>
+        </div>
         <div className="dashboard-hero__aqi">
           <div className="section-heading">
             <p>Current AQI</p>
@@ -459,6 +482,17 @@ export function Dashboard() {
           ))}
         </div>
       </section>
+
+      {home && (
+        <AnnotationDialog
+          isOpen={recordOpen}
+          onClose={() => setRecordOpen(false)}
+          homeId={home.id}
+          onSuccess={() => {
+            setRecordSuccess('Reaction recorded.');
+          }}
+        />
+      )}
     </div>
   );
 }

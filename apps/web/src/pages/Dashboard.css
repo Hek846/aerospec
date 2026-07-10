@@ -65,6 +65,24 @@
   align-items: stretch;
 }
 
+.dashboard-hero__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: calc(var(--space-2) * -1);
+}
+
+.dashboard-record-success {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--color-success-light);
+  color: var(--color-success);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
 .dashboard-hero__aqi,
 .dashboard-hero__score,
 .dashboard-trend,
