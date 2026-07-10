@@ -211,9 +211,11 @@ flowchart TB
     subgraph User["Bearer JWT"]
         HOM["/homes, /rooms"]
         DEV["/devices, /ingest"]
+        ANA["/analytics"]
         MAP["/map/cells"]
         EXT["/external/openaq"]
         ALT["/alerts, /reports, /compare"]
+        CMP["GET /compare/context"]
     end
     subgraph Admin["role = admin"]
         ADM["/admin/*"]
@@ -235,8 +237,13 @@ flowchart TB
 | `GET /devices/:id/readings?range=24h\|7d\|30d` | time-bucketed (see below) |
 | `GET /devices/:id/export`, `GET /homes/:id/export` | CSV/JSON |
 | `POST /ingest/readings` (new) | see section 2 |
+| `GET /analytics/score?homeId=&date=` (new) | daily 0-100 home air-quality score from hourly stats |
+| `GET /analytics/trends?homeId=&range=&metric=` (new) | bucketed score or metric trends |
+| `GET /analytics/calendar?homeId=&month=` (new) | day-by-day score calendar for a month |
+| `GET /analytics/patterns?homeId=&range=` (new) | hour-of-day and weekday/weekend patterns |
 | `GET /map/cells?bbox=&hours=&res=` (new) | privacy-fuzzed H3 aggregation |
 | `GET /external/openaq/latest?bbox=` (new) | OpenAQ v3 proxy w/ cache |
+| `GET /compare/context?deviceId=&hours=` (new) | device vs neighborhood (H3 res-7) vs city (OpenAQ ~25 km) |
 | `/alerts`, `/reports`, `/compare`, `/admin` | same shapes, DB-backed |
 
 ### Implementation notes (binding for clients)
@@ -264,6 +271,23 @@ flowchart TB
   `centerLat` and `centerLon` kept for the current web map.
 - `GET /external/openaq/latest` responds `{ stations: [...], total, cached }`
   with stations `{ id, name, lat, lon, pm25, aqi, lastUpdated }`.
+- Analytics routes require Bearer JWT plus home membership. They query
+  `hourly_device_stats` by its public relation name/columns only, joined
+  through `devices.home_id`.
+  - `GET /analytics/score?homeId&date=YYYY-MM-DD` defaults `date` to today
+    UTC and responds `{ homeId, date, score, band, breakdown, hoursWithData }`.
+    `score` is `null` when no hourly stats exist. `breakdown` items are
+    `{ metric, subscore, weight, avgValue }`.
+  - `GET /analytics/trends?homeId&range=day|week|month|year&metric=score|pm25|pm10|co2|vocIndex|humidity|aqi`
+    returns `{ homeId, range, metric, points, summary }`. Buckets are hourly,
+    6-hour, daily, and weekly respectively; `points[]` is `{ ts, value }`,
+    and `summary.delta` is the last non-null bucket minus the first non-null
+    bucket.
+  - `GET /analytics/calendar?homeId&month=YYYY-MM` returns
+    `{ homeId, month, days, bestDay, worstDay }`, where each day is
+    `{ date, score, band, worstMetric }`.
+  - `GET /analytics/patterns?homeId&range=7d|30d|90d` defaults to `30d` and
+    returns `{ homeId, range, hourly, bestHour, worstHour, weekday, weekend }`.
 - `/reports/weekly` computes reports on the fly (no stored reports). Report
   ids are `weekly-<homeId>`; `GET /reports/:id` and `/reports/:id/export`
   recompute. Metric stats include `minValue` in addition to
@@ -293,6 +317,31 @@ may be coarser for wide bounding boxes; resolution 8 averages roughly
 returns the H3 id, center, boundary, device count, weighted average PM2.5/AQI,
 and last timestamp. Serials, device coordinates, and exact home coordinates
 stay server-side.
+
+### Analytics (`/analytics`)
+
+```mermaid
+flowchart LR
+    HDS[("hourly_device_stats")] --> R["Analytics routes"]
+    DEV[("devices.home_id")] --> R
+    R --> S["Daily score<br/>device-day mean"]
+    R --> T["Trends<br/>hour/6h/day/week"]
+    R --> C["Calendar<br/>day score + worst metric"]
+    R --> P["Patterns<br/>hour + weekday/weekend"]
+    S --> API["GET /analytics/score"]
+    T --> API2["GET /analytics/trends"]
+    C --> API3["GET /analytics/calendar"]
+    P --> API4["GET /analytics/patterns"]
+```
+
+Score is 0-100 where higher is better. Metric subscores are linearly
+interpolated between configured breakpoints: PM2.5, PM10, CO2, VOC index, and
+humidity. Weights are PM2.5 `.40`, CO2 `.20`, PM10 `.15`, VOC `.15`, and
+humidity `.10`, renormalized over metrics present in each hourly row so
+current devices with null CO2/VOC still produce a score. Hourly score is the
+weighted mean of available subscores; daily device score is the mean of hourly
+scores; daily home score is the mean of device daily scores. Bands are
+`excellent >=80`, `good >=60`, `fair >=40`, `poor >=20`, otherwise `bad`.
 
 ### OpenAQ proxy
 
@@ -324,6 +373,40 @@ a key). Responses are cached in memory for 10 minutes keyed by bbox and
 normalized to `[{ id, name, lat, lon, pm25, aqi, lastUpdated }]`. Upstream
 failures return `502 { error }`; per-station fetch failures degrade to
 `pm25: null` for that station only.
+
+### Compare context (`/compare/context`)
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant D as TimescaleDB
+    participant O as OpenAQ proxy
+
+    C->>A: GET /compare/context?deviceId=&hours=
+    A->>D: device avg pm25/aqi (window)
+    A->>D: neighborhood homes in same H3 res-7 cell
+    A->>O: OpenAQ stations in ~25 km bbox
+    A-->>C: { device, neighborhood, city, hours }
+```
+
+`GET /compare/context?deviceId=<uuid>&hours=24` returns a three-way
+comparison for a single device:
+
+- `device` — `{ id, name, avgPm25, avgAqi }` averaged over the requested
+  window from `sensor_readings` (`coalesce(pm25_corr, pm25_env)`), null-safe.
+- `neighborhood` — `{ h3, resolution: 7, deviceCount, avgPm25, avgAqi }`
+  for all devices whose home falls in the same H3 resolution-7 cell as the
+  device's home, same window. `null` when the home has no lat/lon.
+- `city` — `{ name, stationCount, avgPm25, avgAqi, source: "openaq" }`,
+  the mean of OpenAQ stations within a ~25 km bbox around the home, using the
+  same cached proxy as `/external/openaq/latest`. `name` prefers the home's
+  `city` field, otherwise the nearest station's name. `null` when
+  `OPENAQ_API_KEY` is unset, no stations report pm25, or upstream fails.
+
+`hours` clamps to `1..168` (default `24`). Auth requires JWT membership of
+ the device's home (`404` unknown device, `403` non-member). `pm25` rounds
+ to one decimal; `aqi` is an integer.
 
 ## 5. Environment
 

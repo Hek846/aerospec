@@ -2,14 +2,14 @@ import express, { Router } from 'express';
 import { authenticateToken, AuthRequest } from '../auth/middleware.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { pm25ToAqi } from '../lib/aqi.js';
-import { parseBbox } from './map.js';
+import { parseBbox, type Bbox } from './map.js';
 
 const router: Router = express.Router();
 
 const OPENAQ_BASE = 'https://api.openaq.org/v3/locations';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
-interface Station {
+export interface Station {
   id: number | string;
   name: string;
   lat: number;
@@ -111,53 +111,67 @@ async function fetchStation(
   };
 }
 
+function bboxKey(bbox: Bbox): string {
+  return `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`;
+}
+
+/**
+ * Fetch OpenAQ stations for a bounding box, using the same in-memory cache
+ * as the /external/openaq/latest endpoint. Returns `{ stations, cached }`.
+ * Throws when the upstream list request fails so callers can decide how to
+ * degrade.
+ */
+export async function fetchOpenAqStationsForBbox(
+  bbox: Bbox
+): Promise<{ stations: Station[]; cached: boolean }> {
+  const key = bboxKey(bbox);
+  const cached = cache.get(key);
+  if (cached && cached.expires > Date.now()) {
+    return { stations: cached.stations, cached: true };
+  }
+
+  const headers: Record<string, string> = {};
+  if (process.env.OPENAQ_API_KEY) {
+    headers['X-API-Key'] = process.env.OPENAQ_API_KEY;
+  }
+
+  // parameters_id=2 keeps only stations that actually have a pm25 sensor
+  const url = `${OPENAQ_BASE}?bbox=${encodeURIComponent(key)}&parameters_id=2&limit=100`;
+  const upstream = await fetch(url, { headers });
+  if (!upstream.ok) {
+    throw new Error(`OpenAQ upstream returned ${upstream.status}`);
+  }
+
+  const body = (await upstream.json()) as { results?: OpenAQLocation[] };
+  const staleCutoff = Date.now() - STALE_MS;
+  const active = (body.results ?? [])
+    .filter((loc) => {
+      const last = lastUpdatedOf(loc);
+      return last !== null && new Date(last).getTime() >= staleCutoff;
+    })
+    .slice(0, MAX_STATIONS);
+  const resolved = await Promise.all(active.map((loc) => fetchStation(loc, headers)));
+  const stations = resolved.filter((s): s is Station => s !== null);
+
+  cache.set(key, { expires: Date.now() + CACHE_TTL_MS, stations });
+  return { stations, cached: false };
+}
+
 // GET /external/openaq/latest?bbox=minLon,minLat,maxLon,maxLat
 router.get(
   '/openaq/latest',
   authenticateToken,
   asyncHandler(async (req: AuthRequest, res) => {
     const bbox = parseBbox(req.query.bbox);
-    const bboxKey = `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`;
 
-    const cached = cache.get(bboxKey);
-    if (cached && cached.expires > Date.now()) {
-      res.json({ stations: cached.stations, total: cached.stations.length, cached: true });
-      return;
-    }
-
-    // parameters_id=2 keeps only stations that actually have a pm25 sensor
-    const url = `${OPENAQ_BASE}?bbox=${encodeURIComponent(bboxKey)}&parameters_id=2&limit=100`;
-    const headers: Record<string, string> = {};
-    if (process.env.OPENAQ_API_KEY) {
-      headers['X-API-Key'] = process.env.OPENAQ_API_KEY;
-    }
-
-    let stations: Station[];
     try {
-      const upstream = await fetch(url, { headers });
-      if (!upstream.ok) {
-        res.status(502).json({ error: `OpenAQ upstream returned ${upstream.status}` });
-        return;
-      }
-      const body = (await upstream.json()) as { results?: OpenAQLocation[] };
-      const staleCutoff = Date.now() - STALE_MS;
-      const active = (body.results ?? [])
-        .filter((loc) => {
-          const last = lastUpdatedOf(loc);
-          return last !== null && new Date(last).getTime() >= staleCutoff;
-        })
-        .slice(0, MAX_STATIONS);
-      const resolved = await Promise.all(active.map((loc) => fetchStation(loc, headers)));
-      stations = resolved.filter((s): s is Station => s !== null);
+      const { stations, cached } = await fetchOpenAqStationsForBbox(bbox);
+      res.json({ stations, total: stations.length, cached });
     } catch (err) {
       res.status(502).json({
         error: `OpenAQ upstream request failed: ${err instanceof Error ? err.message : 'unknown error'}`
       });
-      return;
     }
-
-    cache.set(bboxKey, { expires: Date.now() + CACHE_TTL_MS, stations });
-    res.json({ stations, total: stations.length, cached: false });
   })
 );
 

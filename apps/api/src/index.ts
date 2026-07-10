@@ -14,6 +14,7 @@ import compareRoutes from './routes/compare.js';
 import ingestRoutes from './routes/ingest.js';
 import mapRoutes from './routes/map.js';
 import externalRoutes from './routes/external.js';
+import analyticsRoutes from './routes/analytics.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // Env is read lazily elsewhere (pool, JWT secret), so config() here is safe
@@ -49,6 +50,7 @@ app.use('/compare', compareRoutes);
 app.use('/ingest', ingestRoutes);
 app.use('/map', mapRoutes);
 app.use('/external', externalRoutes);
+app.use('/analytics', analyticsRoutes);
 
 // Error handling
 app.use(errorHandler);

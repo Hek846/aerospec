@@ -30,6 +30,7 @@ flowchart LR
     subgraph Cloud["Backend (Docker Compose)"]
         API["Express API<br/>JWT auth"]
         DB[("Postgres<br/>TimescaleDB")]
+        ANA["Analytics routes<br/>score + trends"]
         PROXY["OpenAQ proxy<br/>10 min cache"]
     end
 
@@ -45,6 +46,8 @@ flowchart LR
     SYNC --> UI_M
     UI_M -- "REST + JWT" --> API
     API <--> DB
+    API --- ANA
+    ANA --> DB
     WEB -- "REST + JWT" --> API
     PROXY --> OAQ
     API --- PROXY
@@ -88,6 +91,9 @@ sequenceDiagram
     W->>A: GET /map/cells?bbox=…
     A->>D: per-home aggregate query
     A-->>W: H3 cells (no serials, no exact coords)
+    W->>A: GET /analytics/score?homeId=…
+    A->>D: query hourly_device_stats
+    A-->>W: daily score + breakdown
 ```
 
 Idempotency: readings are keyed `(device_id, ts)`; re-uploading overlapping
@@ -222,7 +228,28 @@ for 24 h, 30-minute buckets for 7 d, 2-hour buckets for 30 d.
 `hourly_device_stats` is exposed as a TimescaleDB continuous aggregate when
 available, with a plain-Postgres view fallback of the same name and columns.
 
-## 5. Device onboarding workflow
+## 5. Analytics API
+
+```mermaid
+flowchart TB
+    C["Web or mobile client"] -->|"Bearer JWT + homeId"| A["/analytics"]
+    A --> G["Home membership guard"]
+    G --> H[("hourly_device_stats")]
+    G --> D[("devices")]
+    H --> S["Score library<br/>subscores + bands"]
+    S --> ONE["/score<br/>daily home score"]
+    S --> TWO["/trends<br/>bucketed points"]
+    S --> THREE["/calendar<br/>month days"]
+    S --> FOUR["/patterns<br/>hour + weekday/weekend"]
+```
+
+The analytics API is home-scoped and authenticated. It reads only
+`hourly_device_stats` joined through `devices.home_id`, so it works against
+both the TimescaleDB continuous aggregate and the plain Postgres view fallback.
+The score library is pure TypeScript and computes metric subscores, missing
+metric weight renormalization, and score bands.
+
+## 6. Device onboarding workflow
 
 ```mermaid
 flowchart TD
@@ -237,7 +264,7 @@ flowchart TD
     H --> I["Start history sync<br/>(section 3)"]
 ```
 
-## 6. Map & crowd-sourced data privacy
+## 7. Map & crowd-sourced data privacy
 
 ```mermaid
 flowchart LR
@@ -257,7 +284,42 @@ resolution 8 averages roughly 0.7 km² per hex, and resolution 9 is the
 maximum-detail cap. Serials, device coordinates, and exact home coordinates
 stay server-side. OpenAQ requires an API key (`OPENAQ_API_KEY` in `.env`).
 
-## 7. Deployment
+### Device vs neighborhood vs city comparison
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant A as Express API
+    participant D as TimescaleDB
+    participant P as OpenAQ proxy
+    participant O as OpenAQ v3
+
+    C->>A: GET /compare/context?deviceId=&hours=
+    A->>D: avg(coalesce(pm25_corr, pm25_env)), avg(aqi) for device
+    A->>D: per-home aggregates in same H3 res-7 cell
+    A->>A: merge homes into target H3 cell
+    alt OPENAQ_API_KEY set
+        A->>P: stations in ~25 km bbox
+        P->>O: /locations?bbox=&parameters_id=2
+        P-->>A: stations { pm25, aqi }
+    end
+    A-->>C: { device, neighborhood, city, hours }
+```
+
+`GET /compare/context` composes three independent sources into a single
+three-way comparison:
+
+1. **Device** — average PM2.5/AQI from the device's own readings over the
+   requested window.
+2. **Neighborhood** — H3 resolution-7 cell that contains the device's home,
+   aggregating all AeroSpec devices whose home falls in that cell.
+3. **City** — mean of nearby OpenAQ stations within a ~25 km bbox, served by
+   the same cached proxy used for the map. This block is best-effort and
+   returns `null` when the key is missing, no stations report PM2.5, or the
+   upstream call fails.
+
+## 8. Deployment
 
 ```mermaid
 flowchart TB
@@ -279,7 +341,7 @@ runs migrations and (when `SEED_ON_BOOT=true` and the DB is empty) seeds
 demo data on startup. `VITE_API_URL` is baked into the web build — set it to
 the externally reachable API URL before building.
 
-## 8. Repository layout
+## 9. Repository layout
 
 | Path | What lives here |
 |---|---|
