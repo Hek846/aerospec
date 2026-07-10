@@ -1,9 +1,9 @@
-# Sensair Mobile App - Design System
+# AeroSpec Mobile App - Design System
 
-Version: 0.1
-Based on: Design inspiration screenshots
+Version: 0.2
+Based on: Unified AeroSpec design tokens (`apps/mobile/lib/core/theme/app_tokens.dart`)
 
-This document specifies the visual design system, UI patterns, colors, typography, and component guidelines for the Sensair mobile app.
+This document specifies the visual design system, UI patterns, colors, typography, and component guidelines for the AeroSpec mobile app. The single source of truth for tokens is [`apps/mobile/lib/core/theme/app_tokens.dart`](../lib/core/theme/app_tokens.dart), which mirrors `apps/web/src/styles/theme.css`.
 
 ---
 
@@ -19,40 +19,68 @@ This document specifies the visual design system, UI patterns, colors, typograph
 
 ## Color Palette
 
+### Token Architecture
+
+```mermaid
+flowchart TD
+    A[app_tokens.dart] -->|mirrors| B[apps/web/src/styles/theme.css]
+    C[app_theme.dart] -->|consumes| A
+    D[Widgets / Screens] -->|prefer| A
+    D -->|legacy API| C
+```
+
 ### Theme Colors
 
 #### Primary Brand Colors
+
+The brand uses a **split primary**:
+
+| Role | Token | Hex | Usage |
+|------|-------|-----|-------|
+| Decorative bright teal | `colorPrimaryBright` | `#26D0CE` | Gradients, illustrations, large display numerals, active-state glows. **Never** as small-text color or as a background for small white text. |
+| Interactive primary (light) | `colorPrimary` | `#0F7B7F` | Buttons, links, selected tabs, focus borders on light surfaces. WCAG AA against white: **~5.05:1**. |
+| Primary light | `colorPrimaryLight` | `#1A9BA1` | Secondary accents, gradient mid-stop. |
+| Primary dark | `colorPrimaryDark` | `#12777C` | Gradient end-stop, dark-mode headers. |
+| Primary surface | `colorPrimarySurface` | `#E8F6F6` | Soft mint card / surface tint. |
+
+#### Hero Gradient
+```css
+background: linear-gradient(135deg, #26D0CE 0%, #1A9BA1 60%, #12777C 100%)
 ```
-Teal/Cyan (Primary):     #26D0CE (rgb(38, 208, 206))
-Teal Dark:               #1BA8A6
-Teal Light:              #4DD9D7
-```
+
+#### Dark Theme Surfaces
+
+| Role | Token | Hex |
+|------|-------|-----|
+| Background | `colorBackgroundDark` | `#0B1D1E` |
+| Surface | `colorSurfaceDark` | `#122A2C` |
+| Surface elevated | `colorSurfaceElevatedDark` | `#1A383A` |
 
 #### Gradient Headers
 **Light Mode**:
 ```css
-background: linear-gradient(135deg, #26D0CE 0%, #1BA8A6 100%)
+background: linear-gradient(135deg, #26D0CE 0%, #1A9BA1 60%, #12777C 100%)
 ```
 
 **Dark Mode**:
 ```css
-background: linear-gradient(135deg, #1A5F5E 0%, #0D3635 100%)
+background: linear-gradient(135deg, #12777C 0%, #0F7B7F 100%)
 ```
 
 ### AQI Color Scale
 
 Based on EPA Air Quality Index standards:
 
-| AQI Range | Band | Color (Hex) | Color (RGB) | Usage |
-|-----------|------|-------------|-------------|-------|
-| 0-50 | Good | `#00E400` | rgb(0, 228, 0) | Gauges, charts, badges |
-| 51-100 | Moderate | `#FFFF00` | rgb(255, 255, 0) | Gauges, charts, badges |
-| 101-150 | Unhealthy for Sensitive Groups | `#FF7E00` | rgb(255, 126, 0) | Gauges, charts, badges |
-| 151-200 | Unhealthy | `#FF0000` | rgb(255, 0, 0) | Gauges, charts, badges |
-| 201-300 | Very Unhealthy | `#8F3F97` | rgb(143, 63, 151) | Gauges, charts, badges |
-| 301-500 | Hazardous | `#7E0023` | rgb(126, 0, 35) | Gauges, charts, badges |
+| AQI Range | Band | Color (Hex) | Soft Variant (Hex) | Usage |
+|-----------|------|-------------|--------------------|-------|
+| 0-50 | Good | `#00E400` | `colorAqiGoodSoft` (`#3300E400`, ~20% alpha) | Gauges, charts, badges, hexagon fills |
+| 51-100 | Moderate | `#FFFF00` | `colorAqiModerateSoft` (`#33FFFF00`, ~20% alpha) | Gauges, charts, badges, chip backgrounds |
+| 101-150 | Unhealthy for Sensitive Groups | `#FF7E00` | `colorAqiSensitiveSoft` (`#33FF7E00`, ~20% alpha) | Gauges, charts, badges, chip backgrounds |
+| 151-200 | Unhealthy | `#FF0000` | `colorAqiUnhealthySoft` (`#33FF0000`, ~20% alpha) | Gauges, charts, badges, chip backgrounds |
+| 201-300 | Very Unhealthy | `#8F3F97` | `colorAqiVeryUnhealthySoft` (`#338F3F97`, ~20% alpha) | Gauges, charts, badges, chip backgrounds |
+| 301-500 | Hazardous | `#7E0023` | `colorAqiHazardousSoft` (`#337E0023`, ~20% alpha) | Gauges, charts, badges, chip backgrounds |
 
-**Important**: Use these exact colors for all AQI visualizations to maintain consistency with EPA standards and user familiarity.
+**Important**: Use the full-opacity colors for all AQI visualizations to maintain consistency with EPA standards and user familiarity. Use the `-Soft` translucent variants only for large area fills such as map hexagons and AQI chips.
 
 ### Metric-Specific Colors
 
@@ -72,28 +100,30 @@ Noise:        #1BA8A6 (teal)
 
 #### Light Theme
 ```
-Background:           #FFFFFF
-Surface:              #F5F5F5
-Surface Elevated:     #FFFFFF
+Background:           #FAFBFC   (colorBackground)
+Surface:              #FFFFFF   (colorSurface)
+Surface Elevated:     #FFFFFF   (colorSurfaceElevated)
 Border:               #E0E0E0
 Divider:              #E0E0E0
 
-Text Primary:         #212121
-Text Secondary:       #757575
-Text Disabled:        #BDBDBD
+Text Primary:         #1A2332   (colorTextPrimary)
+Text Secondary:       #4A5568   (colorTextSecondary)
+Text Tertiary:        #718096   (colorTextTertiary)
+Text Inverse:         #FFFFFF   (colorTextInverse)
 ```
 
 #### Dark Theme
 ```
-Background:           #121212
-Surface:              #1E1E1E
-Surface Elevated:     #2C2C2C
+Background:           #0B1D1E   (colorBackgroundDark)
+Surface:              #122A2C   (colorSurfaceDark)
+Surface Elevated:     #1A383A   (colorSurfaceElevatedDark)
 Border:               #3C3C3C
 Divider:              #3C3C3C
 
-Text Primary:         #FFFFFF
-Text Secondary:       #B0B0B0
-Text Disabled:        #6C6C6C
+Text Primary:         #F9FAFB   (colorTextPrimaryDark)
+Text Secondary:       #D1D5DB   (colorTextSecondaryDark)
+Text Tertiary:        #9CA3AF   (colorTextTertiaryDark)
+Text Inverse:         #1A2332   (colorTextInverseDark)
 ```
 
 ### Status Colors
@@ -111,11 +141,12 @@ Info:                 #26D0CE
 
 ### Font Family
 
-**Primary**: System default (platform-specific)
-- iOS: SF Pro, SF Pro Rounded
-- Android: Roboto
+| Role | Font | Fallback |
+|------|------|----------|
+| Display | Plus Jakarta Sans | -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif |
+| Body | Work Sans | -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif |
 
-**Fallback**: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif
+If the display font is not loaded, fall back to the platform system font.
 
 ### Type Scale
 
@@ -214,9 +245,9 @@ Info:                 #26D0CE
 
 **Specifications**:
 - Background: Surface (light) / Surface Elevated (dark)
-- Border Radius: 16px
+- Border Radius: `radiusCard` (16px)
 - Padding: 16px
-- Shadow: 0px 2px 8px rgba(0,0,0,0.08)
+- Shadow: soft, low-opacity, slightly teal-tinted
 - Min Width: 100px
 - Min Height: 100px
 
@@ -248,16 +279,16 @@ Fahrenheit
 
 **Specifications**:
 - Background: Surface
-- Border Radius: 12px
+- Border Radius: `radiusCard` (16px)
 - Padding: 12px 16px
 - Height: 72px
 - Tap area: Full card
 
 **Badge** (AQI pill):
-- Background: AQI color (20% opacity)
+- Background: AQI `-Soft` variant (e.g. `colorAqiGoodSoft`)
 - Text: AQI value
 - Text Color: AQI color (full opacity)
-- Border Radius: 12px
+- Border Radius: `radiusFull` (pill)
 - Padding: 4px 12px
 - Font: Label (14px, semibold)
 
@@ -347,13 +378,13 @@ Label
 - Profile: `person` / `person.circle`
 
 **Active State**:
-- Icon color: Primary (#26D0CE)
-- Label color: Primary
+- Icon color: `colorPrimary` (light) / `colorPrimaryBright` (dark)
+- Label color: `colorPrimary` (light) / `colorPrimaryBright` (dark)
 - Font weight: 600
 
 **Inactive State**:
-- Icon color: Text Secondary
-- Label color: Text Secondary
+- Icon color: `colorTextSecondary`
+- Label color: `colorTextSecondary`
 - Font weight: 400
 
 ---
@@ -366,6 +397,7 @@ Label
 - Height: Auto (content-based)
 - Min Height: 200px
 - Gradient: See "Gradient Headers" in Color Palette
+- Border Radius: `radiusHeader` (28px) on bottom corners only
 - Padding: 24px horizontal, 32px vertical
 - Safe area: Respect top notch/status bar
 
@@ -385,27 +417,27 @@ Status summary (white, Caption)
 ### 7. Buttons
 
 #### Primary Button
-- Background: Primary color (#26D0CE)
-- Text: White
+- Background: `colorPrimary` (light) / `colorPrimaryBright` (dark)
+- Text: White / `colorTextInverse`
 - Font: Label (14px, semibold)
 - Height: 48px
-- Border Radius: 24px (fully rounded)
+- Border Radius: `radiusHero` (24px, fully rounded)
 - Padding: 12px 24px
-- Shadow: 0px 2px 4px rgba(38, 208, 206, 0.3)
+- Shadow: soft teal-tinted, low opacity
 
 **Hover/Press**:
-- Background: Teal Dark (#1BA8A6)
+- Background: `colorPrimaryDark`
 - Scale: 0.98
 
 #### Secondary Button
 - Background: Transparent
-- Border: 1px Primary color
-- Text: Primary color
+- Border: 1px `colorPrimary`
+- Text: `colorPrimary`
 - Same dimensions as Primary
 
 #### Text Button
 - Background: Transparent
-- Text: Primary color
+- Text: `colorPrimary` (light) / `colorPrimaryBright` (dark)
 - Font: Label (14px, semibold)
 - Padding: 8px 16px
 - No border, no shadow
@@ -423,11 +455,11 @@ Status summary (white, Caption)
 - Padding: 2px
 
 **Segment**:
-- Active background: Primary color (light theme) or Surface Elevated (dark)
-- Active text: White (light) or Primary (dark)
-- Inactive text: Text Secondary
+- Active background: `colorPrimary` (light theme) or `colorSurfaceElevatedDark` (dark)
+- Active text: `colorTextInverse` (light) or `colorPrimaryBright` (dark)
+- Inactive text: `colorTextSecondary`
 - Font: Label (14px, semibold)
-- Border Radius: 6px
+- Border Radius: `radiusMd` (8px)
 - Transition: 0.2s ease
 
 **Layout**:
@@ -444,18 +476,18 @@ Status summary (white, Caption)
 **Specifications**:
 - Height: 48px
 - Background: Surface
-- Border Radius: 24px
+- Border Radius: `radiusHero` (24px)
 - Padding: 12px 16px
-- Shadow: 0px 2px 8px rgba(0,0,0,0.1)
+- Shadow: soft, low-opacity
 
 **Content**:
 - [Search icon 20px] Placeholder text
 - Font: Body (16px)
-- Icon color: Text Secondary
+- Icon color: `colorTextSecondary`
 
 **Focus State**:
-- Border: 2px Primary color
-- Shadow: 0px 4px 12px rgba(38, 208, 206, 0.2)
+- Border: 2px `colorPrimary`
+- Shadow: soft teal-tinted glow
 
 ---
 
@@ -465,8 +497,8 @@ Status summary (white, Caption)
 
 **Specifications**:
 - Background: Surface
-- Border Radius: 24px (top corners only)
-- Shadow: 0px -2px 16px rgba(0,0,0,0.1)
+- Border Radius: `radiusHero` (24px, top corners only)
+- Shadow: soft, low-opacity
 - Handle: 32px wide, 4px tall, gray, centered
 
 **Behavior**:
@@ -484,17 +516,19 @@ Status summary (white, Caption)
 
 ### Spacing Scale
 
-Use consistent spacing multiples of 4px:
+Use consistent spacing multiples of 4px. Mirror the token names in `app_tokens.dart`:
 
-```
-4px   - xs (micro gaps)
-8px   - sm (between related items)
-12px  - md (card padding)
-16px  - lg (section padding)
-24px  - xl (major sections)
-32px  - 2xl (screen padding)
-48px  - 3xl (major dividers)
-```
+| Token | Size | Usage |
+|-------|------|-------|
+| `space1` | 4px | xs, micro gaps |
+| `space2` | 8px | sm, between related items |
+| `space3` | 12px | md, card padding |
+| `space4` | 16px | lg, section padding |
+| `space5` | 24px | xl, major sections |
+| `space6` | 32px | 2xl, screen padding |
+| `space8` | 48px | 3xl, major dividers |
+| `space10` | 64px | — |
+| `space12` | 96px | — |
 
 ### Safe Areas
 
@@ -549,8 +583,8 @@ Use **Material Symbols** (Android/cross-platform) or **SF Symbols** (iOS native)
 
 ### Icon Colors
 
-- **Active/Primary**: Primary color (#26D0CE)
-- **Default**: Text Secondary
+- **Active/Primary**: `colorPrimary` (light) / `colorPrimaryBright` (dark)
+- **Default**: `colorTextSecondary`
 - **Status**: Match status color (green, yellow, red)
 
 ---
@@ -624,13 +658,29 @@ Ensure WCAG AA compliance (4.5:1 for normal text):
 
 ---
 
+## Radius Tokens
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `radiusSm` | 4px | Small corners, tags |
+| `radiusMd` | 8px | Segmented controls, small cards |
+| `radiusLg` | 12px | Legacy small cards |
+| `radiusXl` / `radiusCard` | 16px | Standard cards |
+| `radiusHero` | 24px | Large cards, heroes, bottom sheets, buttons |
+| `radiusHeader` | 28px | Hero header bottom corners |
+| `radiusFull` | 9999px | Pills, chips, stadium buttons |
+
+## Shadows
+
+Shadows are soft, low-opacity, and slightly teal-tinted. Use the opacity constants in `app_tokens.dart` (`shadowOpacityLight` / `shadowOpacityDark`) rather than hand-tuning alpha values.
+
 ## Dark Mode Specifics
 
 ### Adaptations
 
-1. **Gradient Headers**: Use darker teal gradient
-2. **Cards**: Use elevated surface color, not white
-3. **Shadows**: Reduce opacity, use lighter shadows
+1. **Gradient Headers**: Use darker teal gradient (`colorPrimaryDark` → `colorPrimary`)
+2. **Cards**: Use `colorSurfaceElevatedDark`, not white
+3. **Shadows**: Reduce opacity; use `shadowOpacityDark`
 4. **Charts**: Maintain AQI colors, adjust backgrounds
 5. **Text**: Ensure sufficient contrast on dark surfaces
 
@@ -714,4 +764,5 @@ Design inspiration screenshots are located in:
 
 ## Changelog
 
+- **v0.2 (2026-07-10)**: Reconciled with unified AeroSpec tokens; split primary into decorative/interactive, added AQI `-Soft` variants, dark teal-black surfaces, radius tokens, and Plus Jakarta Sans / Work Sans typography.
 - **v0.1 (2025-01-22)**: Initial design system based on inspiration screenshots
