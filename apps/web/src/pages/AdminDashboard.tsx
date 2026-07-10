@@ -25,8 +25,8 @@ interface SystemStats {
   onlineDevices: number;
   offlineDevices: number;
   firmwareDistribution: Record<string, number>;
-  averageBatteryLevel: number;
-  averageWifiRssi: number;
+  averageBatteryLevel: number | null;
+  averageWifiRssi: number | null;
 }
 
 export function AdminDashboard() {
@@ -136,11 +136,15 @@ export function AdminDashboard() {
         </div>
         <div className="stat-card">
           <h3>Avg Battery</h3>
-          <div className="stat-value">{systemStats.averageBatteryLevel.toFixed(0)}%</div>
+          <div className="stat-value">
+            {systemStats.averageBatteryLevel != null ? `${systemStats.averageBatteryLevel.toFixed(0)}%` : '—'}
+          </div>
         </div>
         <div className="stat-card">
           <h3>Avg WiFi RSSI</h3>
-          <div className="stat-value">{systemStats.averageWifiRssi.toFixed(0)} dBm</div>
+          <div className="stat-value">
+            {systemStats.averageWifiRssi != null ? `${systemStats.averageWifiRssi.toFixed(0)} dBm` : '—'}
+          </div>
         </div>
       </section>
 
@@ -236,11 +240,10 @@ export function AdminDashboard() {
                   <td>
                     <div className="battery-indicator">
                       <div
-                        className="battery-fill"
-                        style={{
-                          width: `${device.batteryLevel}%`,
-                          backgroundColor: device.batteryLevel > 50 ? '#4CAF50' : device.batteryLevel > 20 ? '#FF9800' : '#f44336'
-                        }}
+                        className={`battery-fill ${
+                          device.batteryLevel > 50 ? 'high' : device.batteryLevel > 20 ? 'mid' : 'low'
+                        }`}
+                        style={{ width: `${device.batteryLevel}%` }}
                       />
                       <span>{device.batteryLevel}%</span>
                     </div>

@@ -27,3 +27,6 @@ apps/mobile/android/local.properties
 .idea/
 *.iml
 *.tsbuildinfo
+
+# Claude Code local settings
+.claude/settings.local.json

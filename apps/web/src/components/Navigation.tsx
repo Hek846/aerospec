@@ -8,9 +8,25 @@ const navItems = [
   { label: 'Devices', path: '/devices', hint: 'Hardware health' },
   { label: 'Map', path: '/map', hint: 'Live topology' },
   { label: 'Compare', path: '/compare', hint: 'Room analysis' },
+  { label: 'Analytics', path: '/analytics', hint: 'Air statistics', icon: 'chart' },
   { label: 'Reports', path: '/reports', hint: 'Weekly digest' },
   { label: 'Alerts', path: '/alerts', hint: 'Thresholds' },
 ];
+
+function ChartIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M4 19V5M4 19h16M8 15l3-4 3 2 4-7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function Navigation() {
   const location = useLocation();
@@ -58,7 +74,11 @@ export function Navigation() {
                 to={item.path}
                 className={isActive(item.path) ? 'nav-link active' : 'nav-link'}
               >
-                <span className="nav-link-label">{item.label}</span>
+                <span className="nav-link-label">
+                  {item.icon === 'chart' && <ChartIcon />}
+                  {item.icon === 'chart' && ' '}
+                  {item.label}
+                </span>
                 <span className="nav-link-hint">{item.hint}</span>
               </Link>
             ))}

@@ -44,40 +44,14 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-screen">
-      <div className="auth-aside">
-        <div className="auth-pattern" aria-hidden />
-        <div className="auth-copy">
-          <div className="auth-logo">
-            <span className="logo-ring" />
-            <span className="logo-type">AeroSpec</span>
-          </div>
-          <h1>Air intelligence for calm, breathable spaces.</h1>
-          <p>
-            Monitor live AQI, surface actionable alerts, and export weekly insights across every room.
-            Built for operators who want clarity without the clutter.
-          </p>
-          <div className="auth-highlights">
-            <div className="highlight">
-              <span className="highlight-dot" />
-              <div>
-                <p className="highlight-label">Live link</p>
-                <p className="highlight-value">99.9% uptime</p>
-              </div>
-            </div>
-            <div className="highlight">
-              <span className="highlight-dot alt" />
-              <div>
-                <p className="highlight-label">AQI targets</p>
-                <p className="highlight-value">Set &amp; forget thresholds</p>
-              </div>
-            </div>
-          </div>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-brand" aria-label="AeroSpec">
+          <div className="brand-mark" aria-hidden="true" />
+          <p className="brand-name">AeroSpec</p>
         </div>
-      </div>
 
-      <div className="auth-card">
-        <div className="auth-card-header">
+        <div className="login-card-header">
           <p className="eyebrow">Sign in</p>
           <h2>Welcome back</h2>
           <p className="hint">Use your credentials or jump in with a demo identity.</p>

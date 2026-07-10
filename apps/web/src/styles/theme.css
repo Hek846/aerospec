@@ -1,11 +1,11 @@
-/* AeroSpec Design System - Refined Scientific Editorial Aesthetic */
+/* AeroSpec Design System - Bright Mint Scientific Dashboard */
 
 /* Import distinctive fonts from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;600;700&family=Work+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Work+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {
   /* Typography Scale */
-  --font-display: 'Spectral', serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'Work Sans', sans-serif;
   --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
 
@@ -31,17 +31,19 @@
   --space-12: 6rem;    /* 96px */
 
   /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 28px;
+  --radius-hero: 0 0 28px 28px;
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 6px rgba(18, 119, 124, 0.08);
+  --shadow-md: 0 10px 24px rgba(18, 119, 124, 0.1), 0 2px 8px rgba(10, 31, 32, 0.04);
+  --shadow-lg: 0 18px 42px rgba(18, 119, 124, 0.14), 0 6px 16px rgba(10, 31, 32, 0.06);
+  --shadow-xl: 0 28px 64px rgba(18, 119, 124, 0.18), 0 10px 24px rgba(10, 31, 32, 0.08);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -53,26 +55,27 @@
 :root[data-theme="light"],
 :root {
   /* Base Colors */
-  --color-background: #FAFBFC;
+  --color-background: #F7FCFC;
   --color-surface: #FFFFFF;
   --color-surface-elevated: #FFFFFF;
 
   /* Text Colors */
-  --color-text-primary: #1A2332;
-  --color-text-secondary: #4A5568;
-  --color-text-tertiary: #718096;
+  --color-text-primary: #102A2C;
+  --color-text-secondary: #3E5E61;
+  --color-text-tertiary: #6B8587;
   --color-text-inverse: #FFFFFF;
 
-  /* Brand Colors - Ocean Teal Palette */
-  --color-primary: #0D7377;
-  --color-primary-light: #14ABAF;
-  --color-primary-dark: #094B4E;
-  --color-primary-surface: #E8F6F6;
+  /* Brand Colors - primary #12777C on white = 5.31:1; white on primary = 5.31:1. */
+  --color-primary: #12777C;
+  --color-primary-bright: #26D0CE;
+  --color-primary-light: #1A9BA1;
+  --color-primary-dark: #0B565A;
+  --color-primary-surface: #DFF6F5;
 
   /* Accent Colors */
-  --color-accent: #2A9D8F;
-  --color-accent-light: #4DBDAE;
-  --color-accent-dark: #1F7A6F;
+  --color-accent: #1A9BA1;
+  --color-accent-light: #26D0CE;
+  --color-accent-dark: #12777C;
 
   /* Semantic Colors */
   --color-success: #10B981;
@@ -86,11 +89,17 @@
 
   /* AQI Band Colors */
   --color-aqi-good: #00E400;
+  --color-aqi-good-soft: rgba(0, 228, 0, 0.24);
   --color-aqi-moderate: #FFFF00;
+  --color-aqi-moderate-soft: rgba(255, 255, 0, 0.28);
   --color-aqi-sensitive: #FF7E00;
+  --color-aqi-sensitive-soft: rgba(255, 126, 0, 0.24);
   --color-aqi-unhealthy: #FF0000;
+  --color-aqi-unhealthy-soft: rgba(255, 0, 0, 0.22);
   --color-aqi-very-unhealthy: #8F3F97;
+  --color-aqi-very-unhealthy-soft: rgba(143, 63, 151, 0.24);
   --color-aqi-hazardous: #7E0023;
+  --color-aqi-hazardous-soft: rgba(126, 0, 35, 0.24);
 
   /* Neutral Palette */
   --color-gray-50: #F9FAFB;
@@ -105,19 +114,25 @@
   --color-gray-900: #111827;
 
   /* Borders */
-  --color-border: #E5E7EB;
-  --color-border-light: #F3F4F6;
+  --color-border: #DCEAEA;
+  --color-border-light: #EEF7F7;
   --color-border-focus: var(--color-primary);
 
   /* Atmospheric Gradients */
-  --gradient-air-clean: linear-gradient(135deg, #E8F6F6 0%, #D4ECEC 100%);
+  --gradient-air-clean: linear-gradient(135deg, #E9FAF9 0%, #CFF1F0 100%);
   --gradient-air-moderate: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
   --gradient-air-unhealthy: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
-  --gradient-hero: linear-gradient(135deg, #0D7377 0%, #14ABAF 100%);
+  --gradient-hero: linear-gradient(135deg, #26D0CE 0%, #1A9BA1 60%, #12777C 100%);
+  --gradient-mint: linear-gradient(145deg, rgba(38, 208, 206, 0.16) 0%, rgba(255, 255, 255, 0.92) 58%, rgba(223, 246, 245, 0.74) 100%);
+
+  /* Component Tokens */
+  --card-bg: var(--color-surface);
+  --chip-bg: rgba(38, 208, 206, 0.14);
+  --gauge-track: rgba(18, 119, 124, 0.16);
 
   /* Overlays */
-  --overlay-backdrop: rgba(26, 35, 50, 0.6);
-  --overlay-card: rgba(255, 255, 255, 0.8);
+  --overlay-backdrop: rgba(16, 42, 44, 0.62);
+  --overlay-card: rgba(255, 255, 255, 0.84);
 
   /* Legacy variable aliases for consistency across pages */
   --primary-color: var(--color-primary);
@@ -125,32 +140,33 @@
   --border-color: var(--color-border);
   --surface-bg: var(--color-surface);
   --bg-color: var(--color-surface-elevated);
-  --hover-bg: rgba(13, 115, 119, 0.08);
+  --hover-bg: rgba(18, 119, 124, 0.08);
 }
 
 /* Dark Theme */
 :root[data-theme="dark"] {
   /* Base Colors */
-  --color-background: #0F1419;
-  --color-surface: #1A2332;
-  --color-surface-elevated: #2A3544;
+  --color-background: #0B1D1E;
+  --color-surface: #102D2F;
+  --color-surface-elevated: #163D40;
 
-  /* Text Colors */
-  --color-text-primary: #F9FAFB;
-  --color-text-secondary: #D1D5DB;
-  --color-text-tertiary: #9CA3AF;
-  --color-text-inverse: #1A2332;
+  /* Text Colors - primary text #F4FBFB on dark background #0B1D1E = 16.58:1. */
+  --color-text-primary: #F4FBFB;
+  --color-text-secondary: #B9D4D6;
+  --color-text-tertiary: #82A8AB;
+  --color-text-inverse: #0B1D1E;
 
-  /* Brand Colors - Adjusted for dark mode */
-  --color-primary: #14ABAF;
-  --color-primary-light: #4DBDAE;
-  --color-primary-dark: #0D7377;
-  --color-primary-surface: #0D3133;
+  /* Brand Colors - primary #26D0CE on dark background #0B1D1E = 9.10:1. */
+  --color-primary: #26D0CE;
+  --color-primary-bright: #26D0CE;
+  --color-primary-light: #6FE7E4;
+  --color-primary-dark: #1A9BA1;
+  --color-primary-surface: #123F41;
 
   /* Accent Colors */
-  --color-accent: #4DBDAE;
-  --color-accent-light: #7FCEC5;
-  --color-accent-dark: #2A9D8F;
+  --color-accent: #26D0CE;
+  --color-accent-light: #8FF0ED;
+  --color-accent-dark: #1A9BA1;
 
   /* Semantic Colors - Adjusted for dark backgrounds */
   --color-success: #34D399;
@@ -164,11 +180,17 @@
 
   /* AQI Band Colors - Same across themes */
   --color-aqi-good: #00E400;
+  --color-aqi-good-soft: rgba(0, 228, 0, 0.28);
   --color-aqi-moderate: #FFFF00;
+  --color-aqi-moderate-soft: rgba(255, 255, 0, 0.32);
   --color-aqi-sensitive: #FF7E00;
+  --color-aqi-sensitive-soft: rgba(255, 126, 0, 0.3);
   --color-aqi-unhealthy: #FF0000;
+  --color-aqi-unhealthy-soft: rgba(255, 0, 0, 0.28);
   --color-aqi-very-unhealthy: #8F3F97;
+  --color-aqi-very-unhealthy-soft: rgba(143, 63, 151, 0.32);
   --color-aqi-hazardous: #7E0023;
+  --color-aqi-hazardous-soft: rgba(126, 0, 35, 0.34);
 
   /* Neutral Palette - Inverted */
   --color-gray-50: #111827;
@@ -183,51 +205,66 @@
   --color-gray-900: #F9FAFB;
 
   /* Borders */
-  --color-border: #374151;
-  --color-border-light: #2A3544;
+  --color-border: #245659;
+  --color-border-light: #183A3D;
   --color-border-focus: var(--color-primary);
 
   /* Atmospheric Gradients - Dark variants */
-  --gradient-air-clean: linear-gradient(135deg, #0D3133 0%, #094B4E 100%);
+  --gradient-air-clean: linear-gradient(135deg, #123F41 0%, #0B565A 100%);
   --gradient-air-moderate: linear-gradient(135deg, #78350F 0%, #92400E 100%);
   --gradient-air-unhealthy: linear-gradient(135deg, #7F1D1D 0%, #991B1B 100%);
-  --gradient-hero: linear-gradient(135deg, #094B4E 0%, #0D7377 100%);
+  --gradient-hero: linear-gradient(135deg, #26D0CE 0%, #1A9BA1 60%, #12777C 100%);
+  --gradient-mint: linear-gradient(145deg, rgba(38, 208, 206, 0.16) 0%, rgba(16, 45, 47, 0.92) 58%, rgba(22, 61, 64, 0.82) 100%);
+
+  /* Component Tokens */
+  --card-bg: var(--color-surface);
+  --chip-bg: rgba(38, 208, 206, 0.16);
+  --gauge-track: rgba(130, 168, 171, 0.22);
 
   /* Overlays */
-  --overlay-backdrop: rgba(0, 0, 0, 0.8);
-  --overlay-card: rgba(26, 35, 50, 0.8);
+  --overlay-backdrop: rgba(5, 15, 16, 0.82);
+  --overlay-card: rgba(16, 45, 47, 0.82);
 
   /* Adjusted shadows for dark mode */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 6px rgba(38, 208, 206, 0.08);
+  --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.28), 0 2px 10px rgba(38, 208, 206, 0.08);
+  --shadow-lg: 0 18px 42px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(38, 208, 206, 0.1);
+  --shadow-xl: 0 28px 64px rgba(0, 0, 0, 0.42), 0 10px 26px rgba(38, 208, 206, 0.12);
+
+  /* Legacy variable aliases for consistency across pages */
+  --primary-color: var(--color-primary);
+  --primary-dark: var(--color-primary-dark);
+  --border-color: var(--color-border);
+  --surface-bg: var(--color-surface);
+  --bg-color: var(--color-surface-elevated);
+  --hover-bg: rgba(38, 208, 206, 0.12);
 }
 
 /* Auto theme - follows system preference */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
     /* Base Colors */
-    --color-background: #0F1419;
-    --color-surface: #1A2332;
-    --color-surface-elevated: #2A3544;
+    --color-background: #0B1D1E;
+    --color-surface: #102D2F;
+    --color-surface-elevated: #163D40;
 
-    /* Text Colors */
-    --color-text-primary: #F9FAFB;
-    --color-text-secondary: #D1D5DB;
-    --color-text-tertiary: #9CA3AF;
-    --color-text-inverse: #1A2332;
+    /* Text Colors - primary text #F4FBFB on dark background #0B1D1E = 16.58:1. */
+    --color-text-primary: #F4FBFB;
+    --color-text-secondary: #B9D4D6;
+    --color-text-tertiary: #82A8AB;
+    --color-text-inverse: #0B1D1E;
 
-    /* Brand Colors */
-    --color-primary: #14ABAF;
-    --color-primary-light: #4DBDAE;
-    --color-primary-dark: #0D7377;
-    --color-primary-surface: #0D3133;
+    /* Brand Colors - primary #26D0CE on dark background #0B1D1E = 9.10:1. */
+    --color-primary: #26D0CE;
+    --color-primary-bright: #26D0CE;
+    --color-primary-light: #6FE7E4;
+    --color-primary-dark: #1A9BA1;
+    --color-primary-surface: #123F41;
 
     /* Apply dark theme colors */
-    --color-accent: #4DBDAE;
-    --color-accent-light: #7FCEC5;
-    --color-accent-dark: #2A9D8F;
+    --color-accent: #26D0CE;
+    --color-accent-light: #8FF0ED;
+    --color-accent-dark: #1A9BA1;
     --color-success: #34D399;
     --color-success-light: #064E3B;
     --color-warning: #FBBF24;
@@ -236,6 +273,19 @@
     --color-error-light: #7F1D1D;
     --color-info: #60A5FA;
     --color-info-light: #1E3A8A;
+
+    --color-aqi-good: #00E400;
+    --color-aqi-good-soft: rgba(0, 228, 0, 0.28);
+    --color-aqi-moderate: #FFFF00;
+    --color-aqi-moderate-soft: rgba(255, 255, 0, 0.32);
+    --color-aqi-sensitive: #FF7E00;
+    --color-aqi-sensitive-soft: rgba(255, 126, 0, 0.3);
+    --color-aqi-unhealthy: #FF0000;
+    --color-aqi-unhealthy-soft: rgba(255, 0, 0, 0.28);
+    --color-aqi-very-unhealthy: #8F3F97;
+    --color-aqi-very-unhealthy-soft: rgba(143, 63, 151, 0.32);
+    --color-aqi-hazardous: #7E0023;
+    --color-aqi-hazardous-soft: rgba(126, 0, 35, 0.34);
 
     --color-gray-50: #111827;
     --color-gray-100: #1F2937;
@@ -248,20 +298,33 @@
     --color-gray-800: #F3F4F6;
     --color-gray-900: #F9FAFB;
 
-    --color-border: #374151;
-    --color-border-light: #2A3544;
+    --color-border: #245659;
+    --color-border-light: #183A3D;
+    --color-border-focus: var(--color-primary);
 
-    --gradient-air-clean: linear-gradient(135deg, #0D3133 0%, #094B4E 100%);
+    --gradient-air-clean: linear-gradient(135deg, #123F41 0%, #0B565A 100%);
     --gradient-air-moderate: linear-gradient(135deg, #78350F 0%, #92400E 100%);
     --gradient-air-unhealthy: linear-gradient(135deg, #7F1D1D 0%, #991B1B 100%);
-    --gradient-hero: linear-gradient(135deg, #094B4E 0%, #0D7377 100%);
+    --gradient-hero: linear-gradient(135deg, #26D0CE 0%, #1A9BA1 60%, #12777C 100%);
+    --gradient-mint: linear-gradient(145deg, rgba(38, 208, 206, 0.16) 0%, rgba(16, 45, 47, 0.92) 58%, rgba(22, 61, 64, 0.82) 100%);
 
-    --overlay-backdrop: rgba(0, 0, 0, 0.8);
-    --overlay-card: rgba(26, 35, 50, 0.8);
+    --card-bg: var(--color-surface);
+    --chip-bg: rgba(38, 208, 206, 0.16);
+    --gauge-track: rgba(130, 168, 171, 0.22);
 
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+    --overlay-backdrop: rgba(5, 15, 16, 0.82);
+    --overlay-card: rgba(16, 45, 47, 0.82);
+
+    --shadow-sm: 0 2px 6px rgba(38, 208, 206, 0.08);
+    --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.28), 0 2px 10px rgba(38, 208, 206, 0.08);
+    --shadow-lg: 0 18px 42px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(38, 208, 206, 0.1);
+    --shadow-xl: 0 28px 64px rgba(0, 0, 0, 0.42), 0 10px 26px rgba(38, 208, 206, 0.12);
+
+    --primary-color: var(--color-primary);
+    --primary-dark: var(--color-primary-dark);
+    --border-color: var(--color-border);
+    --surface-bg: var(--color-surface);
+    --bg-color: var(--color-surface-elevated);
+    --hover-bg: rgba(38, 208, 206, 0.12);
   }
 }

@@ -18,12 +18,12 @@ export function Devices() {
 
   return (
     <div className="devices-page">
-      <header className="page-header">
+      <header className="page-header page-header--hero">
         <h1>Devices</h1>
         <p className="page-description">Monitor and manage all your air quality sensors</p>
       </header>
 
-      <div className="devices-controls">
+      <div className="devices-controls-card">
         <input
           type="text"
           className="search-input"

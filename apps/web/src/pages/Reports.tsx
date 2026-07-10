@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRooms } from '../hooks/useData';
 import { api, downloadFile } from '../lib/api';
 import { format } from 'date-fns';
 import { AQIBadge } from '../components/AQIBadge';
@@ -29,6 +30,9 @@ interface ReportSummary {
 }
 
 export function Reports() {
+  const allRooms = useRooms();
+  const roomName = (roomId: string) =>
+    allRooms.find(r => r.id === roomId)?.name ?? `Room ${roomId.slice(0, 8)}`;
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [selectedReport, setSelectedReport] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,7 +87,7 @@ export function Reports() {
   const metrics = selectedReport?.summaryStats.metrics ?? [];
 
   const roomChartData = rooms.map(room => ({
-    roomId: room.roomId,
+    roomId: roomName(room.roomId),
     avgAqi: room.avgAqi,
     maxAqi: room.maxAqi,
   }));
@@ -107,8 +111,13 @@ export function Reports() {
     ? rooms.reduce((worst, room) => room.maxAqi > worst.maxAqi ? room : worst)
     : null;
 
-  const steadyMetric = metrics.length
-    ? metrics.reduce((steady, metric) => {
+  // Metrics with no data at all report avg/min/max of 0 and would always
+  // win "most stable" with a 0.0–0.0 range; only rank metrics that have data.
+  const measuredMetrics = metrics.filter(
+    metric => metric.avgValue !== 0 || metric.minValue !== 0 || metric.maxValue !== 0
+  );
+  const steadyMetric = measuredMetrics.length
+    ? measuredMetrics.reduce((steady, metric) => {
         const range = metric.maxValue - metric.minValue;
         const steadyRange = steady.maxValue - steady.minValue;
         return range < steadyRange ? metric : steady;
@@ -171,7 +180,7 @@ export function Reports() {
                   {cleanestRoom && (
                     <div className="summary-card loft">
                       <p className="summary-label">Cleanest average</p>
-                      <p className="summary-value">{cleanestRoom.roomId}</p>
+                      <p className="summary-value">{roomName(cleanestRoom.roomId)}</p>
                       <AQIBadge aqi={cleanestRoom.avgAqi} size="small" />
                       <p className="summary-hint">Avg AQI {cleanestRoom.avgAqi}</p>
                     </div>
@@ -179,7 +188,7 @@ export function Reports() {
                   {spikiestRoom && (
                     <div className="summary-card loft">
                       <p className="summary-label">Highest spike</p>
-                      <p className="summary-value">{spikiestRoom.roomId}</p>
+                      <p className="summary-value">{roomName(spikiestRoom.roomId)}</p>
                       <AQIBadge aqi={spikiestRoom.maxAqi} size="small" />
                       <p className="summary-hint">
                         Peak {spikiestRoom.maxAqi} at {format(new Date(spikiestRoom.maxAqiTimestamp), 'MMM d, h:mm a')}
@@ -210,7 +219,7 @@ export function Reports() {
                     <div key={room.roomId} className="room-stat-card">
                       <div className="room-title">
                         <span className="room-dot" />
-                        <h4>{room.roomId}</h4>
+                        <h4>{roomName(room.roomId)}</h4>
                       </div>
                       <div className="room-stat-content">
                         <div className="stat-item">
@@ -248,8 +257,8 @@ export function Reports() {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="avgAqi" fill="#14ABAF" name="Average AQI" />
-                      <Bar dataKey="maxAqi" fill="#F59E0B" name="Peak AQI" />
+                      <Bar dataKey="avgAqi" fill="var(--report-bar-primary)" name="Average AQI" />
+                      <Bar dataKey="maxAqi" fill="var(--report-bar-peak)" name="Peak AQI" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -300,9 +309,9 @@ export function Reports() {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="min" fill="#2196F3" name="Minimum" />
-                      <Bar dataKey="avg" fill="#14ABAF" name="Average" />
-                      <Bar dataKey="max" fill="#F59E0B" name="Maximum" />
+                      <Bar dataKey="min" fill="var(--report-bar-min)" name="Minimum" />
+                      <Bar dataKey="avg" fill="var(--report-bar-avg)" name="Average" />
+                      <Bar dataKey="max" fill="var(--report-bar-max)" name="Maximum" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

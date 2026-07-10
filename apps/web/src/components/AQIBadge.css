@@ -2,43 +2,42 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--chip-bg);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.aqi-badge--small {
+  padding: var(--space-1) var(--space-2);
+}
+
+.aqi-badge--large {
+  padding: var(--space-2) var(--space-4);
+}
+
+.aqi-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .aqi-value {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-family: var(--font-body);
-  font-weight: 700;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  font-size: var(--text-base);
+  line-height: 1;
 }
 
 .aqi-badge--small .aqi-value {
   font-size: var(--text-sm);
-  padding: var(--space-1) var(--space-2);
-  min-width: 40px;
-  height: 24px;
-}
-
-.aqi-badge--medium .aqi-value {
-  font-size: var(--text-base);
-  padding: var(--space-2) var(--space-3);
-  min-width: 56px;
-  height: 32px;
 }
 
 .aqi-badge--large .aqi-value {
-  font-size: var(--text-xl);
-  padding: var(--space-3) var(--space-4);
-  min-width: 80px;
-  height: 48px;
+  font-size: var(--text-lg);
 }
 
 .aqi-band {
-  font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-text-secondary);
@@ -50,4 +49,59 @@
 
 .aqi-badge--large .aqi-band {
   font-size: var(--text-base);
+}
+
+/* AQI band accents via soft background + solid color dot/text */
+.aqi-badge--good {
+  background: var(--color-aqi-good-soft);
+  color: var(--color-aqi-good);
+}
+
+.aqi-badge--good .aqi-dot {
+  background: var(--color-aqi-good);
+}
+
+.aqi-badge--moderate {
+  background: var(--color-aqi-moderate-soft);
+  color: var(--color-aqi-moderate);
+}
+
+.aqi-badge--moderate .aqi-dot {
+  background: var(--color-aqi-moderate);
+}
+
+.aqi-badge--unhealthy-sensitive-groups {
+  background: var(--color-aqi-sensitive-soft);
+  color: var(--color-aqi-sensitive);
+}
+
+.aqi-badge--unhealthy-sensitive-groups .aqi-dot {
+  background: var(--color-aqi-sensitive);
+}
+
+.aqi-badge--unhealthy {
+  background: var(--color-aqi-unhealthy-soft);
+  color: var(--color-aqi-unhealthy);
+}
+
+.aqi-badge--unhealthy .aqi-dot {
+  background: var(--color-aqi-unhealthy);
+}
+
+.aqi-badge--very-unhealthy {
+  background: var(--color-aqi-very-unhealthy-soft);
+  color: var(--color-aqi-very-unhealthy);
+}
+
+.aqi-badge--very-unhealthy .aqi-dot {
+  background: var(--color-aqi-very-unhealthy);
+}
+
+.aqi-badge--hazardous {
+  background: var(--color-aqi-hazardous-soft);
+  color: var(--color-aqi-hazardous);
+}
+
+.aqi-badge--hazardous .aqi-dot {
+  background: var(--color-aqi-hazardous);
 }

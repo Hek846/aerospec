@@ -1,25 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_tokens.dart';
+
 /// Theme mode provider
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 
-/// App theme configuration based on Design System
+/// App theme configuration based on the unified AeroSpec design system.
 class AppTheme {
-  // Primary brand colors
-  static const Color primaryTeal = Color(0xFF26D0CE);
-  static const Color tealDark = Color(0xFF1BA8A6);
-  static const Color tealLight = Color(0xFF4DD9D7);
+  // --------------------------------------------------------------------------
+  // Legacy brand aliases — kept for backwards compatibility with consumers.
+  // New code should prefer AppTokens directly.
+  // --------------------------------------------------------------------------
+  static const Color primaryTeal = AppTokens.colorPrimaryBright;
+  static const Color tealDark = AppTokens.colorPrimaryDark;
+  static const Color tealLight = AppTokens.colorPrimaryLight;
 
-  // AQI Colors (EPA Standard)
-  static const Color aqiGood = Color(0xFF00E400);
-  static const Color aqiModerate = Color(0xFFFFFF00);
-  static const Color aqiUnhealthySensitive = Color(0xFFFF7E00);
-  static const Color aqiUnhealthy = Color(0xFFFF0000);
-  static const Color aqiVeryUnhealthy = Color(0xFF8F3F97);
-  static const Color aqiHazardous = Color(0xFF7E0023);
+  // --------------------------------------------------------------------------
+  // EPA AQI colors
+  // --------------------------------------------------------------------------
+  static const Color aqiGood = AppTokens.colorAqiGood;
+  static const Color aqiModerate = AppTokens.colorAqiModerate;
+  static const Color aqiUnhealthySensitive = AppTokens.colorAqiSensitive;
+  static const Color aqiUnhealthy = AppTokens.colorAqiUnhealthy;
+  static const Color aqiVeryUnhealthy = AppTokens.colorAqiVeryUnhealthy;
+  static const Color aqiHazardous = AppTokens.colorAqiHazardous;
 
+  /// Translucent AQI band variants for hexagon fills and chip backgrounds.
+  static const Color aqiGoodSoft = AppTokens.colorAqiGoodSoft;
+  static const Color aqiModerateSoft = AppTokens.colorAqiModerateSoft;
+  static const Color aqiUnhealthySensitiveSoft = AppTokens.colorAqiSensitiveSoft;
+  static const Color aqiUnhealthySoft = AppTokens.colorAqiUnhealthySoft;
+  static const Color aqiVeryUnhealthySoft = AppTokens.colorAqiVeryUnhealthySoft;
+  static const Color aqiHazardousSoft = AppTokens.colorAqiHazardousSoft;
+
+  // --------------------------------------------------------------------------
   // Metric-specific colors
+  // --------------------------------------------------------------------------
   static const Color metricPM25 = Color(0xFFFF7E00);
   static const Color metricPM10 = Color(0xFF8F3F97);
   static const Color metricCO2 = Color(0xFFFF0000);
@@ -28,38 +45,42 @@ class AppTheme {
   static const Color metricVOC = Color(0xFFFFFF00);
   static const Color metricNoise = Color(0xFF1BA8A6);
 
+  // --------------------------------------------------------------------------
   // Status colors
+  // --------------------------------------------------------------------------
   static const Color statusOnline = Color(0xFF00E400);
   static const Color statusWarning = Color(0xFFFFFF00);
   static const Color statusError = Color(0xFFFF0000);
-  static const Color statusInfo = Color(0xFF26D0CE);
+  static const Color statusInfo = AppTokens.colorPrimaryBright;
 
+  // --------------------------------------------------------------------------
   // Light theme
+  // --------------------------------------------------------------------------
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      primaryColor: primaryTeal,
-      scaffoldBackgroundColor: Colors.white,
+      primaryColor: AppTokens.colorPrimary,
+      scaffoldBackgroundColor: AppTokens.colorBackground,
       colorScheme: const ColorScheme.light(
-        primary: primaryTeal,
-        onPrimary: Colors.white,
-        secondary: tealDark,
-        onSecondary: Colors.white,
-        error: statusError,
-        onError: Colors.white,
-        surface: Color(0xFFF5F5F5),
-        onSurface: Color(0xFF212121),
+        primary: AppTokens.colorPrimary,
+        onPrimary: AppTokens.colorTextInverse,
+        secondary: AppTokens.colorPrimaryLight,
+        onSecondary: AppTokens.colorTextInverse,
+        error: AppTokens.colorError,
+        onError: AppTokens.colorTextInverse,
+        surface: AppTokens.colorSurface,
+        onSurface: AppTokens.colorTextPrimary,
       ),
 
       // Card theme
       cardTheme: CardTheme(
-        color: const Color(0xFFF5F5F5),
+        color: AppTokens.colorSurface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTokens.radiusCard),
         ),
-        shadowColor: Colors.black.withOpacity(0.08),
+        shadowColor: Colors.black.withOpacity(AppTokens.shadowOpacityLight),
       ),
 
       // App bar theme
@@ -67,7 +88,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTokens.colorTextInverse,
       ),
 
       // Text theme
@@ -77,82 +98,82 @@ class AppTheme {
           fontSize: 48,
           fontWeight: FontWeight.w700,
           height: 56 / 48,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
         // Display - Main headings
         displayMedium: TextStyle(
           fontSize: 36,
           fontWeight: FontWeight.w700,
           height: 44 / 36,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
         // Headline 1 - Screen titles
         headlineLarge: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w600,
           height: 36 / 28,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
         // Headline 2 - Section headers
         headlineMedium: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w600,
           height: 32 / 24,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
         // Headline 3 - Card titles
         headlineSmall: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           height: 28 / 20,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
         // Body Large - Primary content
         bodyLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w400,
           height: 26 / 18,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
         // Body - Default text
         bodyMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           height: 24 / 16,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
         // Body Small - Secondary text
         bodySmall: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           height: 20 / 14,
-          color: Color(0xFF757575),
+          color: AppTokens.colorTextSecondary,
         ),
         // Caption - Labels, timestamps
         labelSmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           height: 16 / 12,
-          color: Color(0xFF757575),
+          color: AppTokens.colorTextSecondary,
         ),
         // Label - Button text, tabs
         labelMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           height: 20 / 14,
-          color: Color(0xFF212121),
+          color: AppTokens.colorTextPrimary,
         ),
       ),
 
       // Button theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryTeal,
-          foregroundColor: Colors.white,
+          backgroundColor: AppTokens.colorPrimary,
+          foregroundColor: AppTokens.colorTextInverse,
           elevation: 2,
-          shadowColor: primaryTeal.withOpacity(0.3),
+          shadowColor: AppTokens.colorPrimary.withOpacity(0.3),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           minimumSize: const Size(0, 48),
@@ -165,10 +186,10 @@ class AppTheme {
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryTeal,
-          side: const BorderSide(color: primaryTeal),
+          foregroundColor: AppTokens.colorPrimary,
+          side: const BorderSide(color: AppTokens.colorPrimary),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           minimumSize: const Size(0, 48),
@@ -181,7 +202,7 @@ class AppTheme {
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryTeal,
+          foregroundColor: AppTokens.colorPrimary,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           textStyle: const TextStyle(
             fontSize: 14,
@@ -193,34 +214,34 @@ class AppTheme {
       // Input decoration theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFF5F5F5),
+        fillColor: AppTokens.colorSurface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: primaryTeal, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusHero),
+          borderSide: const BorderSide(color: AppTokens.colorPrimary, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
 
       // Divider theme
       dividerTheme: const DividerThemeData(
-        color: Color(0xFFE0E0E0),
+        color: AppTokens.colorBorderLight,
         thickness: 1,
         space: 1,
       ),
 
       // Bottom navigation bar theme
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFFF5F5F5),
-        selectedItemColor: primaryTeal,
-        unselectedItemColor: Color(0xFF757575),
+        backgroundColor: AppTokens.colorSurface,
+        selectedItemColor: AppTokens.colorPrimary,
+        unselectedItemColor: AppTokens.colorTextSecondary,
         selectedLabelStyle: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
@@ -235,32 +256,34 @@ class AppTheme {
     );
   }
 
+  // --------------------------------------------------------------------------
   // Dark theme
+  // --------------------------------------------------------------------------
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      primaryColor: primaryTeal,
-      scaffoldBackgroundColor: const Color(0xFF121212),
+      primaryColor: AppTokens.colorPrimaryBright,
+      scaffoldBackgroundColor: AppTokens.colorBackgroundDark,
       colorScheme: const ColorScheme.dark(
-        primary: primaryTeal,
-        onPrimary: Colors.white,
-        secondary: tealDark,
-        onSecondary: Colors.white,
-        error: statusError,
-        onError: Colors.white,
-        surface: Color(0xFF1E1E1E),
-        onSurface: Colors.white,
+        primary: AppTokens.colorPrimaryBright,
+        onPrimary: AppTokens.colorTextInverseDark,
+        secondary: AppTokens.colorPrimaryLight,
+        onSecondary: AppTokens.colorTextInverseDark,
+        error: AppTokens.colorError,
+        onError: AppTokens.colorTextInverseDark,
+        surface: AppTokens.colorSurfaceDark,
+        onSurface: AppTokens.colorTextPrimaryDark,
       ),
 
       // Card theme
       cardTheme: CardTheme(
-        color: const Color(0xFF1E1E1E),
+        color: AppTokens.colorSurfaceDark,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTokens.radiusCard),
         ),
-        shadowColor: Colors.black.withOpacity(0.2),
+        shadowColor: Colors.black.withOpacity(AppTokens.shadowOpacityDark),
       ),
 
       // App bar theme
@@ -268,7 +291,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTokens.colorTextPrimaryDark,
       ),
 
       // Text theme
@@ -278,82 +301,82 @@ class AppTheme {
           fontSize: 48,
           fontWeight: FontWeight.w700,
           height: 56 / 48,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
         // Display - Main headings
         displayMedium: TextStyle(
           fontSize: 36,
           fontWeight: FontWeight.w700,
           height: 44 / 36,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
         // Headline 1 - Screen titles
         headlineLarge: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w600,
           height: 36 / 28,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
         // Headline 2 - Section headers
         headlineMedium: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w600,
           height: 32 / 24,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
         // Headline 3 - Card titles
         headlineSmall: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           height: 28 / 20,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
         // Body Large - Primary content
         bodyLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w400,
           height: 26 / 18,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
         // Body - Default text
         bodyMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           height: 24 / 16,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
         // Body Small - Secondary text
         bodySmall: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           height: 20 / 14,
-          color: Color(0xFFB0B0B0),
+          color: AppTokens.colorTextSecondaryDark,
         ),
         // Caption - Labels, timestamps
         labelSmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           height: 16 / 12,
-          color: Color(0xFFB0B0B0),
+          color: AppTokens.colorTextSecondaryDark,
         ),
         // Label - Button text, tabs
         labelMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           height: 20 / 14,
-          color: Colors.white,
+          color: AppTokens.colorTextPrimaryDark,
         ),
       ),
 
       // Button theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryTeal,
-          foregroundColor: Colors.white,
+          backgroundColor: AppTokens.colorPrimaryBright,
+          foregroundColor: AppTokens.colorTextInverseDark,
           elevation: 2,
-          shadowColor: primaryTeal.withOpacity(0.3),
+          shadowColor: AppTokens.colorPrimaryBright.withOpacity(0.3),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           minimumSize: const Size(0, 48),
@@ -366,10 +389,10 @@ class AppTheme {
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryTeal,
-          side: const BorderSide(color: primaryTeal),
+          foregroundColor: AppTokens.colorPrimaryBright,
+          side: const BorderSide(color: AppTokens.colorPrimaryBright),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           minimumSize: const Size(0, 48),
@@ -382,7 +405,7 @@ class AppTheme {
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryTeal,
+          foregroundColor: AppTokens.colorPrimaryBright,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           textStyle: const TextStyle(
             fontSize: 14,
@@ -394,34 +417,34 @@ class AppTheme {
       // Input decoration theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF2C2C2C),
+        fillColor: AppTokens.colorSurfaceElevatedDark,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppTokens.radiusHero),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: primaryTeal, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusHero),
+          borderSide: const BorderSide(color: AppTokens.colorPrimaryBright, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
 
       // Divider theme
       dividerTheme: const DividerThemeData(
-        color: Color(0xFF3C3C3C),
+        color: AppTokens.colorBorderDark,
         thickness: 1,
         space: 1,
       ),
 
       // Bottom navigation bar theme
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF1E1E1E),
-        selectedItemColor: primaryTeal,
-        unselectedItemColor: Color(0xFFB0B0B0),
+        backgroundColor: AppTokens.colorSurfaceDark,
+        selectedItemColor: AppTokens.colorPrimaryBright,
+        unselectedItemColor: AppTokens.colorTextSecondaryDark,
         selectedLabelStyle: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
@@ -440,13 +463,17 @@ class AppTheme {
   static const LinearGradient headerGradientLight = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primaryTeal, tealDark],
+    colors: AppTokens.gradientHeroColors,
+    stops: AppTokens.gradientHeroStops,
   );
 
   // Gradient for headers (dark mode)
   static const LinearGradient headerGradientDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1A5F5E), Color(0xFF0D3635)],
+    colors: [
+      AppTokens.colorPrimaryDark,
+      AppTokens.colorPrimary,
+    ],
   );
 }

@@ -8,11 +8,92 @@ import {
   getReadingsForRange,
   parseRange,
   mapDevice,
+  isUuid,
   ApiReading,
   ApiDevice
 } from '../db/queries.js';
+import { getPool } from '../db/pool.js';
+import { pm25ToAqi } from '../lib/aqi.js';
+import { latLngToCell, cellToBoundary } from 'h3-js';
+import { aggregateHomesToCells, type HomeAggregate } from '../lib/h3cells.js';
+import { fetchOpenAqStationsForBbox, type Station } from './external.js';
+import { type Bbox } from './map.js';
 
 const router: Router = express.Router();
+
+const NEIGHBORHOOD_H3_RES = 7;
+const CITY_RADIUS_KM = 25;
+
+export function clampHours(raw: unknown): number {
+  if (raw === undefined || raw === null || raw === '') return 24;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return 24;
+  return Math.min(168, Math.max(1, Math.trunc(parsed)));
+}
+
+export function formatPm25(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Math.round(value * 10) / 10;
+}
+
+export function averagePm25(values: number[]): number | null {
+  const valid = values.filter((v) => typeof v === 'number' && !Number.isNaN(v));
+  if (valid.length === 0) return null;
+  return formatPm25(valid.reduce((sum, v) => sum + v, 0) / valid.length);
+}
+
+export function bboxFromBoundary(boundary: Array<[number, number]>): Bbox {
+  const lats = boundary.map(([lat]) => lat);
+  const lons = boundary.map(([, lon]) => lon);
+  return {
+    minLon: Math.min(...lons),
+    minLat: Math.min(...lats),
+    maxLon: Math.max(...lons),
+    maxLat: Math.max(...lats)
+  };
+}
+
+/** Rough km-to-degree conversion for a bounding box around a point. */
+export function bboxAroundPoint(lat: number, lon: number, radiusKm: number): Bbox {
+  const latDelta = radiusKm / 111;
+  const lonDelta = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+  return {
+    minLon: Math.max(-180, lon - lonDelta),
+    minLat: Math.max(-90, lat - latDelta),
+    maxLon: Math.min(180, lon + lonDelta),
+    maxLat: Math.min(90, lat + latDelta)
+  };
+}
+
+function squaredDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  // 12742 km is the mean Earth diameter; squared avoids the sqrt.
+  return 12742 ** 2 * (a < 0 ? 0 : a);
+}
+
+export function nearestStationName(
+  stations: Pick<Station, 'name' | 'lat' | 'lon'>[],
+  lat: number,
+  lon: number
+): string | null {
+  if (stations.length === 0) return null;
+  let nearest = stations[0]!;
+  let nearestDist = squaredDistanceKm(lat, lon, nearest.lat, nearest.lon);
+  for (const station of stations.slice(1)) {
+    const d = squaredDistanceKm(lat, lon, station.lat, station.lon);
+    if (d < nearestDist) {
+      nearest = station;
+      nearestDist = d;
+    }
+  }
+  return nearest.name ?? null;
+}
 
 interface MetricStats {
   avg: number;
@@ -220,5 +301,165 @@ function generateComparisonSummary(roomsData: RoomComparisonData[]): ComparisonS
     totalRoomsCompared: validRooms.length
   };
 }
+
+interface ContextReadingStats {
+  avgPm25: number | null;
+  avgAqi: number | null;
+}
+
+interface ContextDevice extends ContextReadingStats {
+  id: string;
+  name: string;
+}
+
+interface ContextNeighborhood extends ContextReadingStats {
+  h3: string;
+  resolution: number;
+  deviceCount: number;
+}
+
+interface ContextCity extends ContextReadingStats {
+  name: string;
+  stationCount: number;
+  source: 'openaq';
+}
+
+// GET /compare/context?deviceId=<uuid>&hours=24
+router.get(
+  '/context',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const rawDeviceId = req.query.deviceId;
+    if (typeof rawDeviceId !== 'string' || !isUuid(rawDeviceId)) {
+      throw new AppError('deviceId query parameter is required and must be a valid UUID', 400);
+    }
+    const deviceId = rawDeviceId;
+    const hours = clampHours(req.query.hours);
+
+    const deviceRow = await getDeviceRowById(deviceId);
+    if (!deviceRow) {
+      throw new AppError(`Device ${deviceId} not found`, 404);
+    }
+
+    const homeId = deviceRow.home_id;
+    if (!homeId) {
+      throw new AppError(`Access denied to device ${deviceId}`, 403);
+    }
+
+    const isAdmin = req.user!.role === 'admin';
+    if (!isAdmin) {
+      const userHomeIds = new Set(await getUserHomeIds(req.user!.userId));
+      if (!userHomeIds.has(homeId)) {
+        throw new AppError(`Access denied to device ${deviceId}`, 403);
+      }
+    }
+
+    const homeResult = await getPool().query<{ lat: number | null; lon: number | null; city: string | null }>(
+      'SELECT lat, lon, city FROM homes WHERE id = $1',
+      [homeId]
+    );
+    const home = homeResult.rows[0];
+    if (!home) {
+      throw new AppError(`Home for device ${deviceId} not found`, 404);
+    }
+
+    const deviceAgg = await getPool().query<{ avg_pm25: number | null }>(
+      `SELECT avg(coalesce(sr.pm25_corr, sr.pm25_env))::real AS avg_pm25
+         FROM sensor_readings sr
+        WHERE sr.device_id = $1 AND sr.ts >= now() - make_interval(hours => $2)`,
+      [deviceId, hours]
+    );
+    const deviceAvgPm25 = formatPm25(deviceAgg.rows[0]?.avg_pm25);
+    const deviceAvgAqi = deviceAvgPm25 !== null ? pm25ToAqi(deviceAvgPm25) : null;
+
+    const device: ContextDevice = {
+      id: deviceRow.id,
+      name: deviceRow.name,
+      avgPm25: deviceAvgPm25,
+      avgAqi: deviceAvgAqi
+    };
+
+    let neighborhood: ContextNeighborhood | null = null;
+    if (home.lat !== null && home.lon !== null) {
+      const targetCell = latLngToCell(home.lat, home.lon, NEIGHBORHOOD_H3_RES);
+      const boundary = cellToBoundary(targetCell) as Array<[number, number]>;
+      const bbox = bboxFromBoundary(boundary);
+
+      const homesAgg = await getPool().query<{
+        id: string;
+        lat: number;
+        lon: number;
+        device_count: string;
+        avg_pm25: number | null;
+        avg_aqi: number | null;
+        reading_count: string;
+      }>(
+        `SELECT h.id,
+                h.lat,
+                h.lon,
+                count(DISTINCT d.id) AS device_count,
+                avg(coalesce(sr.pm25_corr, sr.pm25_env))::real AS avg_pm25,
+                avg(sr.aqi)::real AS avg_aqi,
+                count(sr.*) AS reading_count
+           FROM sensor_readings sr
+           JOIN devices d ON d.id = sr.device_id
+           JOIN homes h ON h.id = d.home_id
+          WHERE h.lat IS NOT NULL AND h.lon IS NOT NULL
+            AND h.lon BETWEEN $1 AND $3
+            AND h.lat BETWEEN $2 AND $4
+            AND sr.ts >= now() - make_interval(hours => $5)
+          GROUP BY h.id, h.lat, h.lon`,
+        [bbox.minLon, bbox.minLat, bbox.maxLon, bbox.maxLat, hours]
+      );
+
+      const homeAggregates: HomeAggregate[] = homesAgg.rows.map((row) => ({
+        id: row.id,
+        lat: row.lat,
+        lon: row.lon,
+        deviceCount: Number(row.device_count),
+        avgPm25: row.avg_pm25,
+        avgAqi: row.avg_aqi,
+        lastTs: null,
+        readingCount: Number(row.reading_count)
+      }));
+
+      const cells = aggregateHomesToCells(homeAggregates, NEIGHBORHOOD_H3_RES);
+      const target = cells.find((c) => c.h3 === targetCell);
+      if (target) {
+        neighborhood = {
+          h3: target.h3,
+          resolution: target.resolution,
+          deviceCount: target.deviceCount,
+          avgPm25: target.avgPm25,
+          avgAqi: target.avgAqi
+        };
+      }
+    }
+
+    let city: ContextCity | null = null;
+    if (home.lat !== null && home.lon !== null && process.env.OPENAQ_API_KEY) {
+      try {
+        const bbox = bboxAroundPoint(home.lat, home.lon, CITY_RADIUS_KM);
+        const { stations } = await fetchOpenAqStationsForBbox(bbox);
+        const withPm25 = stations.filter((s): s is Station & { pm25: number } => typeof s.pm25 === 'number');
+        if (withPm25.length > 0) {
+          const avgPm25 = averagePm25(withPm25.map((s) => s.pm25));
+          const name = home.city || nearestStationName(withPm25, home.lat, home.lon) || 'Unknown';
+          city = {
+            name,
+            stationCount: withPm25.length,
+            avgPm25,
+            avgAqi: avgPm25 !== null ? pm25ToAqi(avgPm25) : null,
+            source: 'openaq'
+          };
+        }
+      } catch {
+        // OpenAQ is best-effort for this endpoint; leave city null on failure.
+      }
+    }
+
+    res.json({ device, neighborhood, city, hours });
+  })
+);
 
 export default router;

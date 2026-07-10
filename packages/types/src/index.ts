@@ -72,6 +72,112 @@ export interface SensorReading {
   anomalyFlags: string[]; // e.g., ["PM_SPIKE", "CO2_HIGH"]
 }
 
+// Annotation Types
+export const FACTOR_TAGS = [
+  'cooking',
+  'cleaning',
+  'windows_open',
+  'guests',
+  'candles_incense',
+  'smoking',
+  'air_purifier_on',
+  'hvac_on',
+  'pets',
+  'outdoor_event',
+  'other',
+] as const;
+
+export type FactorTag = (typeof FACTOR_TAGS)[number];
+
+export interface Annotation {
+  id: string;
+  homeId: string;
+  roomId: string | null;
+  deviceId: string | null;
+  userId: string;
+  ts: string; // ISO timestamp
+  tags: FactorTag[];
+  note: string | null;
+  createdAt: string; // ISO timestamp
+}
+
+// Analytics Types
+export type ScoreBand = 'excellent' | 'good' | 'fair' | 'poor' | 'bad';
+export type ScoreMetric = 'pm25' | 'pm10' | 'co2' | 'vocIndex' | 'humidity';
+export type AnalyticsMetric = ScoreMetric | 'score' | 'aqi';
+export type AnalyticsRange = 'day' | 'week' | 'month' | 'year';
+export type PatternRange = '7d' | '30d' | '90d';
+
+export interface ScoreBreakdown {
+  metric: ScoreMetric;
+  subscore: number;
+  weight: number;
+  avgValue: number;
+}
+
+export interface DailyScore {
+  homeId: string;
+  date: string; // YYYY-MM-DD UTC
+  score: number | null;
+  band: ScoreBand | null;
+  breakdown: ScoreBreakdown[];
+  hoursWithData: number;
+}
+
+export interface TrendPoint {
+  ts: string; // ISO timestamp
+  value: number | null;
+}
+
+export interface TrendSummary {
+  avg: number | null;
+  min: number | null;
+  max: number | null;
+  delta: number | null;
+}
+
+export interface AnalyticsTrends {
+  homeId: string;
+  range: AnalyticsRange;
+  metric: AnalyticsMetric;
+  points: TrendPoint[];
+  summary: TrendSummary;
+}
+
+export interface CalendarDayScore {
+  date: string; // YYYY-MM-DD UTC
+  score: number | null;
+  band: ScoreBand | null;
+  worstMetric: ScoreMetric | null;
+}
+
+export interface AnalyticsCalendar {
+  homeId: string;
+  month: string; // YYYY-MM
+  days: CalendarDayScore[];
+  bestDay: string | null;
+  worstDay: string | null;
+}
+
+export interface PatternPoint {
+  avgPm25: number | null;
+  avgScore: number | null;
+}
+
+export interface HourlyPattern extends PatternPoint {
+  hour: number;
+}
+
+export interface AnalyticsPatterns {
+  homeId: string;
+  range: PatternRange;
+  hourly: HourlyPattern[];
+  bestHour: number | null;
+  worstHour: number | null;
+  weekday: PatternPoint;
+  weekend: PatternPoint;
+}
+
 // Alert Types
 export type ThresholdType = 'above' | 'below';
 export type MetricType = 'pm25' | 'pm10' | 'co2' | 'vocIndex' | 'noiseDb';
