@@ -8,6 +8,7 @@ import { Reports } from './pages/Reports'
 import { MapView } from './pages/MapView'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { CompareRooms } from './pages/CompareRooms'
+import { Analytics } from './pages/Analytics'
 import Login from './pages/Login'
 import Alerts from './pages/Alerts'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -59,6 +60,14 @@ function App() {
           <ProtectedRoute>
             <Layout>
               <CompareRooms />
+            </Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/analytics" element={
+          <ProtectedRoute>
+            <Layout>
+              <Analytics />
             </Layout>
           </ProtectedRoute>
         } />

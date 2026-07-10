@@ -65,6 +65,50 @@ export interface AnalyticsTrends {
   summary: TrendSummary;
 }
 
+export interface CalendarDay {
+  date: string;
+  score: number | null;
+  band: ScoreBand | null;
+  worstMetric: AnalyticsMetric | null;
+}
+
+export interface AnalyticsCalendar {
+  days: CalendarDay[];
+  bestDay: CalendarDay | null;
+  worstDay: CalendarDay | null;
+}
+
+export interface PatternHour {
+  hour: number;
+  avgPm25: number | null;
+  avgScore: number | null;
+}
+
+export interface PatternComparison {
+  avgPm25: number | null;
+  avgScore: number | null;
+}
+
+export interface AnalyticsPatterns {
+  hourly: PatternHour[];
+  bestHour: number | null;
+  worstHour: number | null;
+  weekday: PatternComparison | null;
+  weekend: PatternComparison | null;
+}
+
+export interface FactorImpact {
+  tag: string;
+  events: number;
+  avgPm25During: number | null;
+  baselinePm25: number | null;
+  deltaPct: number | null;
+}
+
+export interface AnalyticsFactors {
+  factors: FactorImpact[];
+}
+
 export function getAnalyticsScore(homeId: string, date?: string): Promise<DailyScore> {
   const params = new URLSearchParams({ homeId });
   if (date) {
@@ -82,4 +126,28 @@ export function getAnalyticsTrends(
   const params = new URLSearchParams({ homeId, range, metric });
 
   return analyticsRequest<AnalyticsTrends>(`/analytics/trends?${params.toString()}`);
+}
+
+export function getAnalyticsCalendar(homeId: string, month: string): Promise<AnalyticsCalendar> {
+  const params = new URLSearchParams({ homeId, month });
+
+  return analyticsRequest<AnalyticsCalendar>(`/analytics/calendar?${params.toString()}`);
+}
+
+export function getAnalyticsPatterns(
+  homeId: string,
+  range: string = '30d'
+): Promise<AnalyticsPatterns> {
+  const params = new URLSearchParams({ homeId, range });
+
+  return analyticsRequest<AnalyticsPatterns>(`/analytics/patterns?${params.toString()}`);
+}
+
+export function getAnalyticsFactors(
+  homeId: string,
+  range: string = '30d'
+): Promise<AnalyticsFactors> {
+  const params = new URLSearchParams({ homeId, range });
+
+  return analyticsRequest<AnalyticsFactors>(`/analytics/factors?${params.toString()}`);
 }
