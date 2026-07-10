@@ -67,6 +67,11 @@ if (process.env.SEED_ON_BOOT === 'true') {
   }
 }
 
+if (process.env.SIMULATE_LIVE === 'true') {
+  const { startLiveSimulator } = await import('./lib/liveSimulator.js');
+  startLiveSimulator();
+}
+
 app.listen(PORT, () => {
   console.log(`🚀 AeroSpec API server running on port ${PORT}`);
   console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);

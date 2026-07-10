@@ -110,7 +110,7 @@ async function findOrCreateRoom(
   homeId: string,
   name: string,
   type: string,
-  floor: number
+  floor: string
 ): Promise<string> {
   const existing = await pool.query<{ id: string }>(
     `SELECT id FROM rooms WHERE home_id = $1 AND name = $2 LIMIT 1`,
