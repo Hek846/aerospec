@@ -15,6 +15,9 @@
 }
 
 .aqi-gauge__value {
+  /* Colored by the current band (see band-specific rules below); a
+     positional gradient cannot follow a 270-degree arc. */
+  stroke: var(--color-aqi-good);
   filter: drop-shadow(var(--shadow-sm));
 }
 
@@ -83,6 +86,10 @@
 }
 
 /* Band-specific needle / tip / band label colors */
+.aqi-gauge--good .aqi-gauge__value {
+  stroke: var(--color-aqi-good);
+}
+
 .aqi-gauge--good .aqi-gauge__needle {
   stroke: var(--color-aqi-good);
 }
@@ -93,6 +100,10 @@
 
 .aqi-gauge--good .aqi-gauge__band {
   color: var(--color-aqi-good);
+}
+
+.aqi-gauge--moderate .aqi-gauge__value {
+  stroke: var(--color-aqi-moderate);
 }
 
 .aqi-gauge--moderate .aqi-gauge__needle {
@@ -107,6 +118,10 @@
   color: var(--color-aqi-moderate);
 }
 
+.aqi-gauge--unhealthy-sensitive-groups .aqi-gauge__value {
+  stroke: var(--color-aqi-sensitive);
+}
+
 .aqi-gauge--unhealthy-sensitive-groups .aqi-gauge__needle {
   stroke: var(--color-aqi-sensitive);
 }
@@ -117,6 +132,10 @@
 
 .aqi-gauge--unhealthy-sensitive-groups .aqi-gauge__band {
   color: var(--color-aqi-sensitive);
+}
+
+.aqi-gauge--unhealthy .aqi-gauge__value {
+  stroke: var(--color-aqi-unhealthy);
 }
 
 .aqi-gauge--unhealthy .aqi-gauge__needle {
@@ -131,6 +150,10 @@
   color: var(--color-aqi-unhealthy);
 }
 
+.aqi-gauge--very-unhealthy .aqi-gauge__value {
+  stroke: var(--color-aqi-very-unhealthy);
+}
+
 .aqi-gauge--very-unhealthy .aqi-gauge__needle {
   stroke: var(--color-aqi-very-unhealthy);
 }
@@ -141,6 +164,10 @@
 
 .aqi-gauge--very-unhealthy .aqi-gauge__band {
   color: var(--color-aqi-very-unhealthy);
+}
+
+.aqi-gauge--hazardous .aqi-gauge__value {
+  stroke: var(--color-aqi-hazardous);
 }
 
 .aqi-gauge--hazardous .aqi-gauge__needle {

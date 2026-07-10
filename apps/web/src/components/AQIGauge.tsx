@@ -76,29 +76,6 @@ export function AQIGauge({ aqi, label, trendPct, size = 240 }: AQIGaugeProps) {
         role="img"
         aria-label={`AQI ${clampedAqi}: ${band}`}
       >
-        <defs>
-          <linearGradient
-            id="aqiGradient"
-            x1="0%"
-            y1="0%"
-            x2="100%"
-            y2="0%"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop offset="0%" stopColor="var(--color-aqi-good)" />
-            <stop offset="10%" stopColor="var(--color-aqi-good)" />
-            <stop offset="10%" stopColor="var(--color-aqi-moderate)" />
-            <stop offset="20%" stopColor="var(--color-aqi-moderate)" />
-            <stop offset="20%" stopColor="var(--color-aqi-sensitive)" />
-            <stop offset="30%" stopColor="var(--color-aqi-sensitive)" />
-            <stop offset="30%" stopColor="var(--color-aqi-unhealthy)" />
-            <stop offset="40%" stopColor="var(--color-aqi-unhealthy)" />
-            <stop offset="40%" stopColor="var(--color-aqi-very-unhealthy)" />
-            <stop offset="60%" stopColor="var(--color-aqi-very-unhealthy)" />
-            <stop offset="60%" stopColor="var(--color-aqi-hazardous)" />
-            <stop offset="100%" stopColor="var(--color-aqi-hazardous)" />
-          </linearGradient>
-        </defs>
         <path
           d={trackPath}
           className="aqi-gauge__track"
@@ -110,7 +87,6 @@ export function AQIGauge({ aqi, label, trendPct, size = 240 }: AQIGaugeProps) {
           className="aqi-gauge__value"
           fill="none"
           strokeWidth={strokeWidth}
-          stroke="url(#aqiGradient)"
           strokeLinecap="round"
         />
         <line
