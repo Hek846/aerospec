@@ -499,4 +499,102 @@ router.get(
   })
 );
 
+// Contrast tagged annotation windows against the home's baseline for the same
+// hours-of-day. This shows correlation, not causation.
+const FACTORS_SQL = `
+WITH tag_events AS (
+  SELECT a.id, a.ts, UNNEST(a.tags) AS tag
+    FROM annotations a
+   WHERE a.home_id = $1
+     AND a.ts >= $2
+     AND a.ts < $3
+),
+windows AS (
+  SELECT tag, ts, ts + INTERVAL '2 hours' AS end_ts
+    FROM tag_events
+),
+hours AS (
+  SELECT DISTINCT w.tag, EXTRACT(HOUR FROM h)::int AS hour
+    FROM windows w,
+         LATERAL generate_series(
+           date_trunc('hour', w.ts),
+           date_trunc('hour', w.end_ts),
+           INTERVAL '1 hour'
+         ) AS h
+),
+during AS (
+  SELECT w.tag, AVG(COALESCE(sr.pm25_corr, sr.pm25_env)) AS avg_pm25
+    FROM windows w
+    JOIN devices d ON d.home_id = $1
+    JOIN sensor_readings sr
+      ON sr.device_id = d.id
+     AND sr.ts >= w.ts
+     AND sr.ts < w.end_ts
+   GROUP BY w.tag
+),
+baseline AS (
+  SELECT h.tag, AVG(COALESCE(sr.pm25_corr, sr.pm25_env)) AS avg_pm25
+    FROM hours h
+    JOIN devices d ON d.home_id = $1
+    JOIN sensor_readings sr
+      ON sr.device_id = d.id
+     AND sr.ts >= $2
+     AND sr.ts < $3
+     AND EXTRACT(HOUR FROM sr.ts)::int = h.hour
+   GROUP BY h.tag
+)
+SELECT t.tag,
+       COUNT(DISTINCT t.id) AS events,
+       d.avg_pm25 AS avg_pm25_during,
+       b.avg_pm25 AS baseline_pm25
+  FROM tag_events t
+  LEFT JOIN during d ON d.tag = t.tag
+  LEFT JOIN baseline b ON b.tag = t.tag
+ GROUP BY t.tag, d.avg_pm25, b.avg_pm25
+ ORDER BY t.tag
+`;
+
+interface FactorRow {
+  tag: string;
+  events: string;
+  avg_pm25_during: number | null;
+  baseline_pm25: number | null;
+}
+
+// GET /analytics/factors?homeId&range=7d|30d|90d
+router.get(
+  '/factors',
+  authenticateToken,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const homeId = requireString(req.query.homeId, 'homeId');
+    const range = parsePatternRange(req.query.range);
+    const days = Number(range.slice(0, -1));
+
+    await ensureHomeAccess(req, homeId);
+
+    const end = new Date();
+    const start = new Date(end.getTime() - days * DAY_MS);
+
+    const result = await getPool().query<FactorRow>(FACTORS_SQL, [homeId, start, end]);
+
+    const factors = result.rows.map((row) => {
+      const during = row.avg_pm25_during;
+      const baseline = row.baseline_pm25;
+      let deltaPct: number | null = null;
+      if (during !== null && baseline !== null && baseline !== 0) {
+        deltaPct = Math.round(((during - baseline) / baseline) * 1000) / 10;
+      }
+      return {
+        tag: row.tag,
+        events: Number(row.events),
+        avgPm25During: during === null ? null : Math.round(during * 10) / 10,
+        baselinePm25: baseline === null ? null : Math.round(baseline * 10) / 10,
+        deltaPct
+      };
+    });
+
+    res.json({ homeId, range, factors });
+  })
+);
+
 export default router;

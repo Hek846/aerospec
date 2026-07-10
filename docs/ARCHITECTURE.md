@@ -236,11 +236,14 @@ flowchart TB
     A --> G["Home membership guard"]
     G --> H[("hourly_device_stats")]
     G --> D[("devices")]
+    G --> ANN[("annotations")]
     H --> S["Score library<br/>subscores + bands"]
     S --> ONE["/score<br/>daily home score"]
     S --> TWO["/trends<br/>bucketed points"]
     S --> THREE["/calendar<br/>month days"]
     S --> FOUR["/patterns<br/>hour + weekday/weekend"]
+    ANN --> FIVE["/factors<br/>tag contrast vs baseline"]
+    D --> FIVE
 ```
 
 The analytics API is home-scoped and authenticated. It reads only
@@ -249,7 +252,25 @@ both the TimescaleDB continuous aggregate and the plain Postgres view fallback.
 The score library is pure TypeScript and computes metric subscores, missing
 metric weight renormalization, and score bands.
 
-## 6. Device onboarding workflow
+## 6. Annotations API
+
+```mermaid
+flowchart TB
+    C["Web or mobile client"] -->|"Bearer JWT"| A["/annotations"]
+    A --> G["Home membership guard"]
+    G --> ANN[("annotations")]
+    A --> M["camelCase mapper"]
+    ANN --> M
+    M --> R["{ annotation }<br/>{ annotations, total }"]
+```
+
+Annotations are timestamped, tagged events scoped to a home (and optionally a
+room or device). They support the `FACTOR_TAGS` vocabulary defined in
+`packages/types` and are used by `/analytics/factors` to contrast PM2.5 during
+tagged windows against a same-hours baseline. Updates and deletes are restricted
+to the annotation creator or the home's `owner`.
+
+## 7. Device onboarding workflow
 
 ```mermaid
 flowchart TD
@@ -264,7 +285,7 @@ flowchart TD
     H --> I["Start history sync<br/>(section 3)"]
 ```
 
-## 7. Map & crowd-sourced data privacy
+## 8. Map & crowd-sourced data privacy
 
 ```mermaid
 flowchart LR
@@ -319,7 +340,7 @@ three-way comparison:
    returns `null` when the key is missing, no stations report PM2.5, or the
    upstream call fails.
 
-## 8. Deployment
+## 9. Deployment
 
 ```mermaid
 flowchart TB
@@ -341,7 +362,7 @@ runs migrations and (when `SEED_ON_BOOT=true` and the DB is empty) seeds
 demo data on startup. `VITE_API_URL` is baked into the web build — set it to
 the externally reachable API URL before building.
 
-## 9. Repository layout
+## 10. Repository layout
 
 | Path | What lives here |
 |---|---|

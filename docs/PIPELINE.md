@@ -212,6 +212,7 @@ flowchart TB
         HOM["/homes, /rooms"]
         DEV["/devices, /ingest"]
         ANA["/analytics"]
+        ANN["/annotations"]
         MAP["/map/cells"]
         EXT["/external/openaq"]
         ALT["/alerts, /reports, /compare"]
@@ -241,6 +242,11 @@ flowchart TB
 | `GET /analytics/trends?homeId=&range=&metric=` (new) | bucketed score or metric trends |
 | `GET /analytics/calendar?homeId=&month=` (new) | day-by-day score calendar for a month |
 | `GET /analytics/patterns?homeId=&range=` (new) | hour-of-day and weekday/weekend patterns |
+| `GET /analytics/factors?homeId=&range=` (new) | factor contrast vs same-hours baseline |
+| `GET /annotations?homeId=&from=&to` (new) | list annotations ordered by `ts` DESC |
+| `POST /annotations` (new) | create a factor annotation |
+| `PATCH /annotations/:id` (new) | update tags/note/ts; creator or owner |
+| `DELETE /annotations/:id` (new) | delete; creator or owner; 204 |
 | `GET /map/cells?bbox=&hours=&res=` (new) | privacy-fuzzed H3 aggregation |
 | `GET /external/openaq/latest?bbox=` (new) | OpenAQ v3 proxy w/ cache |
 | `GET /compare/context?deviceId=&hours=` (new) | device vs neighborhood (H3 res-7) vs city (OpenAQ ~25 km) |
@@ -288,6 +294,11 @@ flowchart TB
     `{ date, score, band, worstMetric }`.
   - `GET /analytics/patterns?homeId&range=7d|30d|90d` defaults to `30d` and
     returns `{ homeId, range, hourly, bestHour, worstHour, weekday, weekend }`.
+  - `GET /analytics/factors?homeId=&range=7d|30d|90d` defaults to `30d` and
+    returns `{ homeId, range, factors }`. Each factor is
+    `{ tag, events, avgPm25During, baselinePm25, deltaPct }`; `deltaPct` is
+    `(during - baseline) / baseline * 100` rounded to one decimal. This is a
+    contrast metric, not proof of causation.
 - `/reports/weekly` computes reports on the fly (no stored reports). Report
   ids are `weekly-<homeId>`; `GET /reports/:id` and `/reports/:id/export`
   recompute. Metric stats include `minValue` in addition to
@@ -298,6 +309,50 @@ flowchart TB
 - `POST /devices/claim` `{ serial, name, homeId, roomId? }` creates the
   device row if the serial is unknown, claims it when unclaimed, and returns
   409 if another home already claimed it.
+
+### Annotations (`/annotations`)
+
+```mermaid
+flowchart TB
+    C["Client"] -->|"Bearer JWT + homeId"| A["/annotations"]
+    A --> G["Home membership guard"]
+    G --> D[("annotations")]
+    A --> M["Map to camelCase response"]
+```
+
+- `POST /annotations` accepts `{ homeId, roomId?, deviceId?, ts, tags[], note? }`.
+  `tags` must be non-empty and every tag must be one of `cooking`, `cleaning`,
+  `windows_open`, `guests`, `candles_incense`, `smoking`, `air_purifier_on`,
+  `hvac_on`, `pets`, `outdoor_event`, `other`. `ts` is a required ISO timestamp.
+  The caller must be a member of `homeId`. Response: `201 { annotation }`.
+- `GET /annotations?homeId=&from=&to` returns `{ annotations, total }` ordered by
+  `ts` DESC. `from` and `to` are optional ISO bounds; membership is enforced.
+- `PATCH /annotations/:id` accepts `{ tags?, note?, ts? }`. Only the annotation
+  creator or the home's `owner` may update it. Response: `{ annotation }`.
+- `DELETE /annotations/:id` is allowed for the creator or the home's `owner`;
+  responds `204`.
+
+### Factor contrast (`/analytics/factors`)
+
+```mermaid
+flowchart TB
+    C["Client"] -->|"Bearer JWT + homeId"| A["GET /analytics/factors"]
+    A --> G["Home membership guard"]
+    G --> ANN[("annotations")]
+    G --> SR[("sensor_readings")]
+    ANN --> W["2-hour windows per tag"]
+    W --> D["avg PM2.5 during"]
+    SR --> D
+    SR --> B["baseline: same range,<br/>same hours-of-day"]
+    D --> R["{tag, events, avgPm25During,<br/>baselinePm25, deltaPct}"]
+    B --> R
+```
+
+For each annotation tag present in the selected range, `/analytics/factors`
+compares the average PM2.5 inside `[annotation.ts, annotation.ts + 2h]` against
+a baseline computed from the same date range but restricted to the same
+hours-of-day touched by the tagged windows. Tags with no annotations in the
+range are omitted.
 
 ### H3 privacy aggregation (`/map/cells`)
 
